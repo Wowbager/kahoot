@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount presentations folder so you can add JSON files without rebuilding
+      - ./presentations:/app/presentations
