@@ -1,20 +1,26 @@
 import { writable } from 'svelte/store';
 
 export const game = writable({
-  phase: 'idle',         // idle | active | revealed
+  phase: 'idle',         // idle | active | revealed | finished
+  started: false,        // false while in the pre-game lobby
+  finished: false,
   slideIndex: 0,
   totalSlides: 0,
   slide: null,
   title: '',
+  code: '',
   players: [],
   answerCount: 0,
   questionStartedAt: null,  // unix ms
   timeLimit: 0,
   myAnswer: null,
   myScore: 0,
+  myRank: null,
+  totalPlayers: 0,
   distribution: null,
   leaderboard: [],
   results: null,
+  error: '',
 });
 
 export function applyMessage(msg) {
@@ -24,10 +30,13 @@ export function applyMessage(msg) {
         return {
           ...g,
           phase: msg.phase,
+          started: !!msg.started,
+          finished: !!msg.finished,
           slideIndex: msg.slide_index,
           totalSlides: msg.total_slides,
           slide: msg.slide,
           title: msg.title,
+          code: msg.code || g.code,
           players: msg.players || [],
           answerCount: msg.answer_count || 0,
           questionStartedAt: msg.question_started_at || null,
@@ -36,6 +45,9 @@ export function applyMessage(msg) {
           distribution: null,
           results: null,
         };
+
+      case 'game_started':
+        return { ...g, started: true, finished: false, phase: 'idle' };
 
       case 'slide_changed':
         return {
@@ -77,10 +89,14 @@ export function applyMessage(msg) {
           phase: 'revealed',
           myAnswer: msg.your_answer,
           myScore: msg.total_score,
+          myRank: msg.rank ?? g.myRank,
+          totalPlayers: msg.total_players ?? g.totalPlayers,
           results: {
             correct: msg.correct,
             isCorrect: msg.is_correct,
             scoreDelta: msg.score_delta,
+            streak: msg.streak ?? 0,
+            streakBonus: msg.streak_bonus ?? 0,
           },
         };
 
@@ -96,9 +112,29 @@ export function applyMessage(msg) {
       case 'leaderboard':
         return { ...g, leaderboard: msg.standings || [] };
 
+      case 'your_rank':
+        return { ...g, myRank: msg.rank, totalPlayers: msg.total, myScore: msg.score ?? g.myScore };
+
+      case 'game_over':
+        // Stage/display receive `standings`; players receive their own `rank`.
+        if (msg.standings) {
+          return { ...g, phase: 'finished', finished: true, leaderboard: msg.standings };
+        }
+        return {
+          ...g,
+          phase: 'finished',
+          finished: true,
+          myRank: msg.rank ?? g.myRank,
+          totalPlayers: msg.total ?? g.totalPlayers,
+          myScore: msg.score ?? g.myScore,
+        };
+
       case 'player_joined':
       case 'player_left':
         return { ...g, players: msg.players || g.players };
+
+      case 'error':
+        return { ...g, error: msg.message || 'Something went wrong' };
 
       default:
         return g;

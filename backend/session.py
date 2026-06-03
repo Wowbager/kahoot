@@ -12,10 +12,15 @@ from models import (
     AnySlide, Presentation, Player, QuestionPhase,
     MultipleMatchingSlide, QUESTION_TYPES, safe_slide_dict,
 )
-from scoring import calculate_score
+from scoring import calculate_score, streak_bonus
 
 
-def _generate_code(length: int = 6) -> str:
+def _generate_pin(length: int = 6) -> str:
+    """A short numeric game PIN, easy to type on a phone keypad."""
+    return "".join(random.choices(string.digits, k=length))
+
+
+def _generate_token(length: int = 16) -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 
@@ -26,6 +31,8 @@ class SessionData:
     presentation: Presentation
     current_index: int = 0
     phase: QuestionPhase = QuestionPhase.IDLE
+    started: bool = False    # False while in the pre-game lobby
+    finished: bool = False   # True once the podium/game-over has been shown
     players: dict[str, Player] = field(default_factory=dict)
     answers: dict[str, object] = field(default_factory=dict)
     question_started_at: Optional[float] = None  # time.time()
@@ -56,11 +63,12 @@ class SessionManager:
     # ------------------------------------------------------------------
 
     def create_session(self, presentation: Presentation) -> tuple[str, str]:
-        for _ in range(10):
-            code = _generate_code()
+        code = _generate_pin()
+        for _ in range(50):
             if code not in self._sessions:
                 break
-        token = _generate_code(16)
+            code = _generate_pin()
+        token = _generate_token(16)
         self._sessions[code] = SessionData(
             code=code,
             presenter_token=token,
@@ -136,6 +144,37 @@ class SessionManager:
     # Game actions (called from WebSocket handlers)
     # ------------------------------------------------------------------
 
+    async def handle_start_game(self, code: str):
+        s = self._sessions[code]
+        if s.started:
+            return
+        s.started = True
+        s.finished = False
+        s.current_index = 0
+        s.phase = QuestionPhase.IDLE
+        s.touch()
+        await self._broadcast_all(s, {"type": "game_started"})
+        await self._broadcast_slide_changed(s)
+
+    async def handle_end_game(self, code: str):
+        s = self._sessions[code]
+        s.finished = True
+        s.phase = QuestionPhase.FINISHED
+        s.touch()
+        ranked, rank_map = self._ranked(s)
+        # Stage / display: full final standings (rendered as a top-3 podium)
+        await self._broadcast_presenter(s, {"type": "game_over", "standings": ranked})
+        await self._broadcast_display(s, {"type": "game_over", "standings": ranked})
+        # Each player privately learns their own final placing
+        for nickname, ws in s.player_ws.items():
+            rank, total = rank_map.get(nickname, (len(ranked), len(ranked)))
+            await self._send(ws, {
+                "type": "game_over",
+                "rank": rank,
+                "total": total,
+                "score": s.players[nickname].score if nickname in s.players else 0,
+            })
+
     async def handle_next_slide(self, code: str):
         s = self._sessions[code]
         if s.current_index < len(s.presentation.slides) - 1:
@@ -198,24 +237,38 @@ class SessionManager:
         slide = s.current_slide()
         s.touch()
 
-        # Calculate scores
+        # Calculate scores (base points + speed bonus + streak bonus)
         score_deltas: dict[str, int] = {}
         is_correct_map: dict[str, bool] = {}
+        streak_map: dict[str, int] = {}
+        bonus_map: dict[str, int] = {}
         for nickname, answer in s.answers.items():
             elapsed = time.time() - (s.question_started_at or time.time())
             pts, correct = calculate_score(slide, answer, elapsed, s.shuffled_right)
-            s.players[nickname].score += pts
-            score_deltas[nickname] = pts
+            player = s.players[nickname]
+            if correct:
+                player.streak += 1
+                bonus = streak_bonus(player.streak)
+            else:
+                player.streak = 0
+                bonus = 0
+            gained = pts + bonus
+            player.score += gained
+            score_deltas[nickname] = gained  # includes streak bonus — don't re-add client side
             is_correct_map[nickname] = correct
+            streak_map[nickname] = player.streak
+            bonus_map[nickname] = bonus
+
+        # Players who didn't answer break their streak too
+        for nickname, player in s.players.items():
+            if nickname not in s.answers:
+                player.streak = 0
 
         # Build answer distribution for display
         distribution = self._build_distribution(slide, s.answers, s.shuffled_right)
 
-        # Leaderboard
-        leaderboard = sorted(
-            [p.model_dump() for p in s.players.values()],
-            key=lambda x: x["score"], reverse=True,
-        )
+        # Leaderboard + per-player rank
+        leaderboard, rank_map = self._ranked(s)
 
         # Correct value for reveal
         correct_value = self._correct_value(slide, s.shuffled_right)
@@ -225,6 +278,7 @@ class SessionManager:
             delta = score_deltas.get(nickname, 0)
             correct = is_correct_map.get(nickname, False)
             my_answer = s.answers.get(nickname)
+            rank, total = rank_map.get(nickname, (len(leaderboard), len(leaderboard)))
             await self._send(ws, {
                 "type": "reveal",
                 "correct": correct_value,
@@ -232,6 +286,10 @@ class SessionManager:
                 "is_correct": correct,
                 "score_delta": delta,
                 "total_score": s.players[nickname].score,
+                "streak": streak_map.get(nickname, 0),
+                "streak_bonus": bonus_map.get(nickname, 0),
+                "rank": rank,
+                "total_players": total,
             })
 
         # Notify presenter and display
@@ -246,12 +304,19 @@ class SessionManager:
 
     async def handle_show_leaderboard(self, code: str):
         s = self._sessions[code]
-        leaderboard = sorted(
-            [p.model_dump() for p in s.players.values()],
-            key=lambda x: x["score"], reverse=True,
-        )
+        leaderboard, rank_map = self._ranked(s)
+        # Big screen shows the standings (top players); players only see their own rank
         msg = {"type": "leaderboard", "standings": leaderboard}
-        await self._broadcast_all(s, msg)
+        await self._broadcast_presenter(s, msg)
+        await self._broadcast_display(s, msg)
+        for nickname, ws in s.player_ws.items():
+            rank, total = rank_map.get(nickname, (len(leaderboard), len(leaderboard)))
+            await self._send(ws, {
+                "type": "your_rank",
+                "rank": rank,
+                "total": total,
+                "score": s.players[nickname].score if nickname in s.players else 0,
+            })
 
     async def handle_player_answer(self, code: str, nickname: str, answer):
         s = self._sessions[code]
@@ -323,6 +388,16 @@ class SessionManager:
     # Snapshot / safe helpers
     # ------------------------------------------------------------------
 
+    def _ranked(self, s: SessionData) -> tuple[list[dict], dict[str, tuple[int, int]]]:
+        """Return (sorted leaderboard dicts, nickname -> (rank, total))."""
+        leaderboard = sorted(
+            [p.model_dump() for p in s.players.values()],
+            key=lambda x: x["score"], reverse=True,
+        )
+        total = len(leaderboard)
+        rank_map = {row["nickname"]: (i + 1, total) for i, row in enumerate(leaderboard)}
+        return leaderboard, rank_map
+
     def _state_snapshot(self, s: SessionData, role: str) -> dict:
         slide = s.current_slide()
         slide_dict = slide.model_dump() if role == "presenter" else self._safe_slide(slide, role)
@@ -337,6 +412,8 @@ class SessionManager:
             "total_slides": len(s.presentation.slides),
             "slide": slide_dict,
             "phase": s.phase.value,
+            "started": s.started,
+            "finished": s.finished,
             "players": [p.model_dump() for p in s.players.values()],
             "answer_count": len(s.answers),
             "question_started_at": int(s.question_started_at * 1000) if s.question_started_at else None,

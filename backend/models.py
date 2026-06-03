@@ -83,11 +83,13 @@ class QuestionPhase(str, Enum):
     IDLE = "idle"
     ACTIVE = "active"
     REVEALED = "revealed"
+    FINISHED = "finished"
 
 
 class Player(BaseModel):
     nickname: str
     score: int = 0
+    streak: int = 0  # consecutive correct answers
 
 
 # ---------------------------------------------------------------------------

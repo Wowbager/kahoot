@@ -1,20 +1,21 @@
 <script>
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
-  import { connectWS, closeWS } from '../lib/ws.js';
+  import { connectWS, closeWS, sendWS } from '../lib/ws.js';
   import { game } from '../stores/game.js';
   import { session } from '../stores/session.js';
-  import SlideControls from '../components/presenter/SlideControls.svelte';
-  import PlayerList from '../components/presenter/PlayerList.svelte';
   import Markdown from '../components/Markdown.svelte';
+  import QuestionDisplay from '../components/display/QuestionDisplay.svelte';
+  import ResultsChart from '../components/display/ResultsChart.svelte';
   import Leaderboard from '../components/display/Leaderboard.svelte';
+  import Podium from '../components/display/Podium.svelte';
+  import Lobby from '../components/presenter/Lobby.svelte';
 
   export let params = {};
   const code = params.code;
 
   let sessVal;
   session.subscribe(v => sessVal = v);
-
   const token = sessVal?.presenterToken;
 
   if (!code || !token) {
@@ -23,121 +24,146 @@
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     connectWS(`${proto}://${location.host}/ws/presenter/${code}?token=${token}`);
   }
-
   onDestroy(closeWS);
 
-  $: isQuestion = ['true_false','single_choice','multiple_choice','number_slider','multiple_matching'].includes($game.slide?.type);
-  $: showLeaderboard = $game.leaderboard?.length > 0 && $game.phase === 'revealed';
+  const QUESTION_TYPES = ['true_false', 'single_choice', 'multiple_choice', 'number_slider', 'multiple_matching'];
+  $: isQuestion = QUESTION_TYPES.includes($game.slide?.type);
+  $: isLast = $game.slideIndex >= $game.totalSlides - 1;
+
+  // What the contextual "advance" action will do, given the current state.
+  $: actionLabel = (() => {
+    const g = $game;
+    if (g.finished) return null;
+    if (!g.started) return 'Start';
+    if (g.phase === 'active') return 'Reveal';
+    if (g.phase === 'revealed') return isLast ? 'Finish' : 'Next';
+    if (isQuestion) return 'Start question';
+    return isLast ? 'Finish' : 'Next';
+  })();
+
+  function advance() {
+    const g = $game;
+    if (g.finished) return;
+    if (!g.started) { sendWS({ type: 'start_game' }); return; }
+    if (g.phase === 'active') { sendWS({ type: 'reveal_answers' }); return; }
+    if (g.phase === 'revealed') {
+      sendWS({ type: isLast ? 'end_game' : 'next_slide' });
+      return;
+    }
+    // idle on a slide
+    if (isQuestion) { sendWS({ type: 'start_question' }); return; }
+    sendWS({ type: isLast ? 'end_game' : 'next_slide' });
+  }
+
+  function back() {
+    if (!$game.started || $game.finished) return;
+    sendWS({ type: 'prev_slide' });
+  }
+
+  function showLeaderboard() { sendWS({ type: 'show_leaderboard' }); }
+
+  function onKey(e) {
+    if (e.target?.tagName === 'INPUT') return;
+    if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') {
+      e.preventDefault();
+      advance();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      back();
+    }
+  }
+
+  // Auto-hiding control bar
+  let barVisible = true;
+  let hideTimer;
+  function poke() {
+    barVisible = true;
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => { barVisible = false; }, 3000);
+  }
+  onMount(() => { poke(); });
+  onDestroy(() => clearTimeout(hideTimer));
 </script>
 
-<div class="presenter">
-  <!-- Header -->
-  <header>
-    <span class="title">{$game.title || 'Loading…'}</span>
-    <span class="code">Code: <strong>{code}</strong></span>
-  </header>
+<svelte:window on:keydown={onKey} on:mousemove={poke} />
 
-  <!-- Main area -->
-  <main>
-    <!-- Slide preview -->
-    <div class="slide-preview">
-      {#if $game.slide?.type === 'presentation'}
-        <Markdown content={$game.slide.content} />
-      {:else if $game.slide}
-        <div class="question-preview">
-          <p class="qtype">{$game.slide.type?.replace(/_/g,' ').toUpperCase()}</p>
-          <p class="qtext">{$game.slide.question}</p>
-          {#if $game.slide.options}
-            <ul>
-              {#each $game.slide.options as opt, i}
-                <li class:correct={$game.slide.correct?.includes(i)}>{opt}</li>
-              {/each}
-            </ul>
-          {:else if $game.slide.type === 'true_false'}
-            <p>Correct: <strong>{$game.slide.correct ? 'True' : 'False'}</strong></p>
-          {:else if $game.slide.type === 'number_slider'}
-            <p>Range: {$game.slide.min} – {$game.slide.max} | Correct: <strong>{$game.slide.correct}</strong></p>
-          {:else if $game.slide.type === 'multiple_matching'}
-            <ul>
-              {#each ($game.slide.pairs ?? []) as pair}
-                <li>{pair.left} → {pair.right}</li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-      {/if}
-    </div>
+<div class="stage bg-stage">
+  <div class="content">
+    {#if !$game.started && !$game.finished}
+      <Lobby code={$game.code || code} players={$game.players} title={$game.title} />
 
-    <!-- Leaderboard after reveal -->
-    {#if showLeaderboard}
-      <div class="lb-panel">
-        <Leaderboard standings={$game.leaderboard} />
+    {:else if $game.finished || $game.phase === 'finished'}
+      <Podium standings={$game.leaderboard} />
+
+    {:else if $game.phase === 'active'}
+      <QuestionDisplay slide={$game.slide} startedAt={$game.questionStartedAt} timeLimit={$game.timeLimit} />
+
+    {:else if $game.phase === 'revealed'}
+      <div class="revealed">
+        {#if $game.distribution}
+          <ResultsChart slide={$game.slide} distribution={$game.distribution} correct={$game.results?.correct} />
+        {/if}
+        {#if $game.leaderboard?.length}
+          <Leaderboard standings={$game.leaderboard} />
+        {/if}
+      </div>
+
+    {:else if $game.slide?.type === 'presentation'}
+      <div class="pres"><Markdown content={$game.slide.content} /></div>
+
+    {:else if $game.slide}
+      <div class="get-ready">
+        <div class="ready-label">Get ready!</div>
+        <div class="ready-q">{$game.slide.question}</div>
       </div>
     {/if}
-  </main>
+  </div>
 
-  <!-- Sidebar -->
-  <aside>
-    <SlideControls
-      slideIndex={$game.slideIndex}
-      totalSlides={$game.totalSlides}
-      phase={$game.phase}
-      isQuestionSlide={isQuestion}
-    />
-    <PlayerList players={$game.players} answerCount={$game.answerCount} />
-  </aside>
+  <!-- Minimal auto-hiding control bar -->
+  <div class="bar" class:hidden={!barVisible}>
+    <button class="btn ghost" on:click={back} disabled={!$game.started || $game.finished} title="Previous (←)">←</button>
+    <span class="counter">
+      {#if $game.started && !$game.finished}{$game.slideIndex + 1} / {$game.totalSlides}{:else if $game.finished}Done{:else}Lobby{/if}
+    </span>
+    {#if $game.phase === 'active'}
+      <span class="answered">{$game.answerCount} answered</span>
+    {/if}
+    {#if $game.phase === 'revealed' && !isLast}
+      <button class="btn ghost" on:click={showLeaderboard} title="Show leaderboard">📊</button>
+    {/if}
+    {#if actionLabel}
+      <button class="btn btn-primary" on:click={advance} title="Advance (Space)">{actionLabel} →</button>
+    {/if}
+  </div>
 </div>
 
 <style>
-  .presenter {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    grid-template-columns: 1fr 280px;
-    grid-template-areas: "hdr hdr" "main side";
-    height: 100%;
-    gap: 0;
-  }
-  header {
-    grid-area: hdr;
+  .stage { position: relative; height: 100%; width: 100%; overflow: hidden; }
+  .content { height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; }
+  .revealed { display: flex; flex-direction: column; align-items: center; gap: 2rem; padding: 2rem; width: 100%; }
+  .pres { padding: clamp(2rem, 6vw, 5rem); max-width: 1000px; width: 100%; font-size: clamp(1.1rem, 2.2vw, 1.6rem); }
+  .get-ready { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; text-align: center; padding: 3rem; }
+  .ready-label { font-size: 1.4rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 3px; }
+  .ready-q { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; max-width: 900px; }
+
+  .bar {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.8rem 1.5rem;
-    background: rgba(0,0,0,0.3);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    gap: 0.8rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-pill);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-md);
+    transition: opacity 0.4s ease, transform 0.4s ease;
   }
-  .title { font-weight: 700; font-size: 1.1rem; }
-  .code { font-size: 0.9rem; color: #aaa; }
-  .code strong { color: #7c3aed; font-size: 1.3rem; letter-spacing: 2px; }
-  main {
-    grid-area: main;
-    padding: 1.5rem;
-    overflow-y: auto;
-    display: flex;
-    gap: 1.5rem;
-  }
-  .slide-preview {
-    flex: 1;
-    background: rgba(255,255,255,0.04);
-    border-radius: 12px;
-    padding: 1.5rem;
-    overflow-y: auto;
-  }
-  .question-preview { display: flex; flex-direction: column; gap: 0.8rem; }
-  .qtype { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-  .qtext { font-size: 1.2rem; font-weight: 600; }
-  ul { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
-  li { padding: 0.4rem 0.8rem; background: rgba(255,255,255,0.06); border-radius: 6px; font-size: 0.9rem; }
-  li.correct { background: rgba(34,197,94,0.2); color: #86efac; }
-  .lb-panel { width: 300px; }
-  aside {
-    grid-area: side;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-    background: rgba(0,0,0,0.2);
-    border-left: 1px solid rgba(255,255,255,0.06);
-    overflow-y: auto;
-  }
+  .bar.hidden { opacity: 0; transform: translateX(-50%) translateY(20px); pointer-events: none; }
+  .counter { color: var(--text-dim); font-weight: 600; min-width: 4rem; text-align: center; }
+  .answered { color: var(--accent); font-weight: 700; }
+  .ghost { background: var(--surface-2); padding: 0.6rem 0.9rem; }
 </style>

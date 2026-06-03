@@ -1,121 +1,152 @@
 <script>
+  import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { api } from '../lib/api.js';
   import { session } from '../stores/session.js';
+  import { randomNickname } from '../lib/nicknames.js';
 
-  let presentations = [];
-  let selected = '';
+  let step = 'pin';        // 'pin' | 'nick'
+  let pin = '';
+  let nickname = randomNickname();
+  let gameTitle = '';
   let error = '';
   let loading = false;
 
-  async function loadPresentations() {
-    presentations = await api.getPresentations();
-    if (presentations.length) selected = presentations[0];
-  }
-  loadPresentations();
+  onMount(() => {
+    // Deep link from the lobby QR code: #/?pin=123456
+    const qs = location.hash.includes('?') ? location.hash.split('?')[1] : '';
+    const deepPin = new URLSearchParams(qs).get('pin');
+    if (deepPin) {
+      pin = deepPin.replace(/\D/g, '').slice(0, 6);
+      if (pin.length >= 4) submitPin();
+    }
+  });
 
-  async function createSession() {
-    if (!selected) return;
+  async function submitPin() {
+    const code = pin.trim();
+    if (!code) { error = 'Enter the game PIN'; return; }
     loading = true;
     error = '';
     try {
-      const { session_code, presenter_token } = await api.createSession(selected);
-      session.set({ sessionCode: session_code, presenterToken: presenter_token, nickname: null, role: 'presenter' });
-      push(`/presenter/${session_code}`);
-    } catch (e) {
-      error = e.message;
+      const info = await api.getSession(code);
+      gameTitle = info.title || '';
+      step = 'nick';
+    } catch {
+      error = 'No game found with that PIN.';
     } finally {
       loading = false;
     }
   }
+
+  function shuffle() { nickname = randomNickname(); }
+
+  function join() {
+    const nick = nickname.trim();
+    if (!nick) { error = 'Pick a nickname'; return; }
+    if (nick.length > 30) { error = 'Nickname too long (max 30).'; return; }
+    session.set({ sessionCode: pin, presenterToken: null, nickname: nick, role: 'player' });
+    push(`/play/${pin}/${encodeURIComponent(nick)}`);
+  }
+
+  function onPinInput(e) {
+    pin = e.target.value.replace(/\D/g, '').slice(0, 6);
+  }
+  function pinKey(e) { if (e.key === 'Enter') submitPin(); }
+  function nickKey(e) { if (e.key === 'Enter') join(); }
 </script>
 
-<div class="home">
-  <div class="card">
-    <h1>🎮 Kahoot Clone</h1>
-
-    <section>
-      <h2>Host a Session</h2>
-      {#if presentations.length === 0}
-        <p class="hint">No presentations found in the <code>presentations/</code> folder.</p>
-      {:else}
-        <label>
-          Select presentation
-          <select bind:value={selected}>
-            {#each presentations as p}
-              <option value={p}>{p}</option>
-            {/each}
-          </select>
-        </label>
-        <button class="btn-primary" on:click={createSession} disabled={loading}>
-          {loading ? 'Creating…' : 'Create Session'}
-        </button>
-        {#if error}<p class="error">{error}</p>{/if}
-      {/if}
-    </section>
-
-    <hr />
-
-    <section>
-      <h2>Join a Session</h2>
-      <button class="btn-secondary" on:click={() => push('/join')}>Join →</button>
-    </section>
-
-    <hr />
-
-    <section>
-      <h2>Display Screen</h2>
-      <p class="hint">Open this on your projector / big screen after creating a session.</p>
-      <button class="btn-secondary" on:click={() => push('/display')}>Open Display →</button>
-    </section>
+<div class="landing bg-animated">
+  <div class="brand">
+    <span class="logo">Quizzle</span>
+    <span class="tag">Play. Compete. Repeat.</span>
   </div>
+
+  <div class="card panel">
+    {#if step === 'pin'}
+      <h1>Game PIN</h1>
+      <input
+        class="input pin-input"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        placeholder="000000"
+        maxlength="6"
+        value={pin}
+        on:input={onPinInput}
+        on:keydown={pinKey}
+        autofocus
+      />
+      {#if error}<p class="error-text">{error}</p>{/if}
+      <button class="btn btn-primary btn-lg btn-block" on:click={submitPin} disabled={loading || pin.length < 4}>
+        {loading ? 'Checking…' : 'Enter'}
+      </button>
+    {:else}
+      {#if gameTitle}<p class="joining">Joining <strong>{gameTitle}</strong></p>{/if}
+      <h1>Your nickname</h1>
+      <div class="nick-row">
+        <input
+          class="input"
+          placeholder="Pick a name"
+          maxlength="30"
+          bind:value={nickname}
+          on:keydown={nickKey}
+          autofocus
+        />
+        <button class="btn dice" title="Shuffle nickname" on:click={shuffle}>🎲</button>
+      </div>
+      {#if error}<p class="error-text">{error}</p>{/if}
+      <button class="btn btn-primary btn-lg btn-block" on:click={join} disabled={!nickname.trim()}>
+        Join game
+      </button>
+      <button class="btn link" on:click={() => { step = 'pin'; error = ''; }}>← Different PIN</button>
+    {/if}
+  </div>
+
+  <button class="btn link host-link" on:click={() => push('/host')}>Host a game →</button>
 </div>
 
 <style>
-  .home {
+  .landing {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 100%;
     padding: 1.5rem;
+    gap: 1.8rem;
   }
-  .card {
-    background: rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 2rem;
+  .brand { text-align: center; }
+  .logo {
+    display: block;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 9vw, 4rem);
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  }
+  .tag { color: var(--text-dim); font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase; }
+  .panel {
     width: 100%;
-    max-width: 480px;
+    max-width: 380px;
+    padding: 1.8rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
   }
-  h1 { font-size: 2rem; font-weight: 800; text-align: center; }
-  h2 { font-size: 1.1rem; color: #ccc; margin-bottom: 0.8rem; }
-  section { display: flex; flex-direction: column; gap: 0.8rem; }
-  label { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.9rem; color: #aaa; }
-  select {
-    padding: 0.6rem 0.8rem;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.08);
-    color: #fff;
-    font-size: 1rem;
-  }
-  .btn-primary, .btn-secondary {
-    padding: 0.8rem 1.5rem;
-    border: none;
-    border-radius: 10px;
-    font-size: 1rem;
+  h1 { font-size: 1.3rem; text-align: center; color: var(--text); }
+  .joining { text-align: center; color: var(--text-dim); font-size: 0.95rem; }
+  .joining strong { color: var(--accent); }
+  .pin-input {
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 2.4rem;
     font-weight: 700;
-    cursor: pointer;
+    letter-spacing: 0.5rem;
+    padding: 0.8rem;
   }
-  .btn-primary { background: #7c3aed; color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #6d28d9; }
-  .btn-primary:disabled { opacity: 0.5; }
-  .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
-  .btn-secondary:hover { background: rgba(255,255,255,0.18); }
-  hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); }
-  .hint { font-size: 0.85rem; color: #888; }
-  .error { color: #f87171; font-size: 0.9rem; }
-  code { background: rgba(255,255,255,0.1); padding: 0.1em 0.4em; border-radius: 4px; font-size: 0.85em; }
+  .nick-row { display: flex; gap: 0.6rem; }
+  .nick-row .input { flex: 1; }
+  .dice { font-size: 1.4rem; padding: 0 1rem; flex: 0 0 auto; }
+  .link { background: transparent; color: var(--text-dim); font-weight: 600; align-self: center; padding: 0.5rem; }
+  .link:hover:not(:disabled) { background: transparent; color: var(--text); }
+  .host-link { opacity: 0.8; }
 </style>

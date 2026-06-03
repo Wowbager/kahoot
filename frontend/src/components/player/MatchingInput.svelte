@@ -109,9 +109,9 @@
     transition: border-color 0.15s, background 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
-  .item.selected { border-color: #7c3aed; background: rgba(124,58,237,0.25); }
-  .item.paired { border-color: #22c55e; background: rgba(34,197,94,0.15); }
-  .item.linked { border-color: #22c55e; background: rgba(34,197,94,0.15); }
+  .item.selected { border-color: var(--primary); background: rgba(124,58,237,0.25); }
+  .item.paired { border-color: var(--correct); background: rgba(34,197,94,0.15); }
+  .item.linked { border-color: var(--correct); background: rgba(34,197,94,0.15); }
   .item.highlight { border-color: rgba(124,58,237,0.5); }
   .badge {
     position: absolute;
@@ -140,8 +140,8 @@
     width: 100%;
     padding: 1rem;
     border: none;
-    border-radius: 12px;
-    background: #7c3aed;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--primary), var(--primary-700));
     color: #fff;
     font-size: 1.1rem;
     font-weight: 700;
