@@ -43,26 +43,27 @@
     justify-content: center;
   }
   .value {
-    font-size: 4rem;
+    font-family: var(--font-display);
+    font-size: 4.5rem;
     font-weight: 800;
-    color: #7c3aed;
+    color: var(--primary);
     min-width: 4rem;
     text-align: center;
   }
   input[type=range] {
     width: 100%;
     height: 8px;
-    accent-color: #7c3aed;
+    accent-color: var(--primary);
     cursor: pointer;
   }
   input.submitted { opacity: 0.5; }
-  .range-labels { display: flex; justify-content: space-between; width: 100%; color: #aaa; font-size: 0.9rem; }
+  .range-labels { display: flex; justify-content: space-between; width: 100%; color: var(--text-faint); font-size: 0.9rem; }
   .submit-btn {
     width: 100%;
     padding: 1rem;
     border: none;
-    border-radius: 12px;
-    background: #7c3aed;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--primary), var(--primary-700));
     color: #fff;
     font-size: 1.1rem;
     font-weight: 700;

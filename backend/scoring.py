@@ -7,6 +7,18 @@ from models import (
 MAX_POINTS = 1000
 SPEED_BONUS = 1000
 
+# Answer-streak bonus: nothing for the first correct answer, then +STREAK_STEP
+# per consecutive correct answer, capped at STREAK_CAP steps (Kahoot-like).
+STREAK_STEP = 100
+STREAK_CAP = 5
+
+
+def streak_bonus(streak: int) -> int:
+    """Bonus points for a current streak of `streak` consecutive correct answers."""
+    if streak <= 1:
+        return 0
+    return min(streak - 1, STREAK_CAP) * STREAK_STEP
+
 
 def _speed_multiplier(elapsed: float, time_limit: int) -> float:
     if time_limit <= 0:

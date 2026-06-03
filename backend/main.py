@@ -25,7 +25,7 @@ async def _cleanup_loop():
         manager.cleanup_idle()
 
 
-app = FastAPI(title="Kahoot Clone", lifespan=lifespan)
+app = FastAPI(title="Quizzle", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

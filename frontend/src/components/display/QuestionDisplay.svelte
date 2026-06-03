@@ -49,11 +49,12 @@
     gap: 2rem;
   }
   .question {
+    font-family: var(--font-display);
     font-size: clamp(1.8rem, 4vw, 3.5rem);
     font-weight: 700;
     text-align: center;
     color: #fff;
-    max-width: 900px;
+    max-width: 1000px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.4);
   }
   .options { display: grid; gap: 1rem; width: 100%; max-width: 800px; }
@@ -69,9 +70,9 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
   .slider-hint { text-align: center; }
-  .range { font-size: 1.4rem; color: #ccc; }
+  .range { font-size: 1.4rem; color: var(--text-dim); }
   .slider-bar { margin-top: 1rem; width: 400px; height: 20px; background: rgba(255,255,255,0.2); border-radius: 10px; }
-  .bar-track { height: 100%; width: 40%; background: #7c3aed; border-radius: 10px; }
-  .match-hint { font-size: 1.5rem; color: #ccc; }
+  .bar-track { height: 100%; width: 40%; background: var(--primary); border-radius: 10px; }
+  .match-hint { font-size: 1.5rem; color: var(--text-dim); }
   .timer-wrap { position: absolute; top: 2rem; right: 2rem; }
 </style>

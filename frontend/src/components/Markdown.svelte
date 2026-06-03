@@ -15,18 +15,19 @@
   .markdown :global(p)  { margin-bottom: 0.8rem; }
   .markdown :global(ul), .markdown :global(ol) { margin-left: 1.5rem; margin-bottom: 0.8rem; }
   .markdown :global(blockquote) {
-    border-left: 4px solid #7c3aed;
+    border-left: 4px solid var(--primary);
     padding-left: 1rem;
     margin: 1rem 0;
-    color: #ccc;
+    color: var(--text-dim);
     font-style: italic;
   }
   .markdown :global(code) {
-    background: rgba(255,255,255,0.1);
+    background: var(--surface-2);
     padding: 0.1em 0.4em;
     border-radius: 4px;
     font-size: 0.9em;
   }
-  .markdown :global(hr) { border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 1.5rem 0; }
+  .markdown :global(hr) { border: none; border-top: 1px solid var(--surface-border); margin: 1.5rem 0; }
   .markdown :global(strong) { color: #fff; }
+  .markdown :global(h1), .markdown :global(h2), .markdown :global(h3) { font-family: var(--font-display); }
 </style>

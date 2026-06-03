@@ -25,11 +25,11 @@
     width: 60px;
     height: 60px;
     border: 5px solid rgba(255,255,255,0.15);
-    border-top-color: #7c3aed;
+    border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .msg { font-size: 1.2rem; color: #ccc; text-align: center; }
-  .count { font-size: 1rem; color: #7c3aed; font-weight: 600; }
+  .msg { font-size: 1.3rem; color: var(--text-dim); text-align: center; font-weight: 600; }
+  .count { font-size: 1rem; color: var(--primary); font-weight: 700; }
 </style>

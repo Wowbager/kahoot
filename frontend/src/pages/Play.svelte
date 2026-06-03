@@ -1,6 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
-  import { connectWS, closeWS, sendWS } from '../lib/ws.js';
+  import { push } from 'svelte-spa-router';
+  import { connectWS, closeWS, sendWS, onWsMessage } from '../lib/ws.js';
   import { game } from '../stores/game.js';
   import WaitingScreen from '../components/player/WaitingScreen.svelte';
   import AnswerButtons from '../components/player/AnswerButtons.svelte';
@@ -12,70 +13,78 @@
   const code = params.code;
   const nickname = decodeURIComponent(params.nickname || '');
 
-  let wsError = '';
+  let errored = '';
 
   if (code && nickname) {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     connectWS(`${proto}://${location.host}/ws/player/${code}/${encodeURIComponent(nickname)}`);
   }
 
-  onDestroy(closeWS);
+  // Stop reconnect loop and surface duplicate-nickname / closed-session errors.
+  const off = onWsMessage((msg) => {
+    if (msg.type === 'error') {
+      errored = msg.message || 'Could not join the game.';
+      closeWS();
+    }
+  });
+
+  onDestroy(() => { off(); closeWS(); });
 
   function submitAnswer(answer) {
     sendWS({ type: 'submit_answer', answer });
+  }
+
+  function ordinal(n) {
+    return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
   }
 
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
 </script>
 
-<div class="play">
-  <!-- Header bar -->
+<div class="play bg-animated">
   <div class="topbar">
     <span class="nick">{nickname}</span>
     <span class="score">{$game.myScore?.toLocaleString() ?? 0} pts</span>
   </div>
 
-  <!-- Content area -->
   <div class="content">
-    {#if $game.phase === 'revealed'}
-      <ScoreReveal results={$game.results} myScore={$game.myScore} />
+    {#if errored}
+      <div class="errscreen">
+        <div class="big">😕</div>
+        <p class="msg">{errored}</p>
+        <button class="btn btn-primary" on:click={() => push('/')}>Try again</button>
+      </div>
+
+    {:else if $game.phase === 'finished'}
+      <div class="final">
+        <div class="medal">{$game.myRank === 1 ? '🥇' : $game.myRank === 2 ? '🥈' : $game.myRank === 3 ? '🥉' : '🎉'}</div>
+        <div class="place">{$game.myRank ? ordinal($game.myRank) : ''} {#if $game.totalPlayers}of {$game.totalPlayers}{/if}</div>
+        <div class="finalscore">{$game.myScore?.toLocaleString() ?? 0} pts</div>
+        <p class="gg">Thanks for playing!</p>
+      </div>
+
+    {:else if $game.phase === 'revealed'}
+      <ScoreReveal results={$game.results} myScore={$game.myScore} rank={$game.myRank} totalPlayers={$game.totalPlayers} />
 
     {:else if $game.phase === 'active' && slide}
-
       {#if submitted}
-        <!-- Submitted — waiting for reveal -->
         <div class="submitted-wait">
           <div class="check">✓</div>
           <p>Answer received!</p>
-          <p class="sub">Waiting for results…</p>
+          <p class="sub">Look up at the screen…</p>
         </div>
-
       {:else if slide.type === 'true_false' || slide.type === 'single_choice' || slide.type === 'multiple_choice'}
-        <AnswerButtons
-          {slide}
-          submitted={submitted}
-          on:answer={(e) => submitAnswer(e.detail)}
-        />
-
+        <AnswerButtons {slide} {submitted} on:answer={(e) => submitAnswer(e.detail)} />
       {:else if slide.type === 'number_slider'}
-        <SliderInput
-          {slide}
-          submitted={submitted}
-          on:answer={(e) => submitAnswer(e.detail)}
-        />
-
+        <SliderInput {slide} {submitted} on:answer={(e) => submitAnswer(e.detail)} />
       {:else if slide.type === 'multiple_matching'}
-        <MatchingInput
-          {slide}
-          submitted={submitted}
-          on:answer={(e) => submitAnswer(e.detail)}
-        />
+        <MatchingInput {slide} {submitted} on:answer={(e) => submitAnswer(e.detail)} />
       {/if}
 
     {:else}
       <WaitingScreen
-        message={slide?.type === 'presentation' ? 'Watch the screen' : 'Waiting for question…'}
+        message={slide?.type === 'presentation' ? 'Watch the screen' : 'Get ready…'}
         playerCount={$game.players?.length}
       />
     {/if}
@@ -83,43 +92,32 @@
 </div>
 
 <style>
-  .play {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    background: #1a1a2e;
-  }
+  .play { display: flex; flex-direction: column; height: 100%; }
   .topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0.7rem 1rem;
-    background: rgba(0,0,0,0.4);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(0, 0, 0, 0.35);
+    border-bottom: 1px solid var(--surface-border);
   }
-  .nick { font-size: 0.9rem; color: #ccc; font-weight: 600; }
-  .score { font-size: 1rem; color: #fbbf24; font-weight: 700; }
+  .nick { font-size: 0.95rem; color: var(--text-dim); font-weight: 700; }
+  .score { font-size: 1rem; color: var(--accent); font-weight: 800; }
   .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-  .submitted-wait {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 1rem;
-    color: #ccc;
+  .submitted-wait, .errscreen, .final {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; gap: 1rem; text-align: center; padding: 2rem; color: var(--text-dim);
   }
-  .check {
-    font-size: 5rem;
-    color: #22c55e;
-    animation: pop 0.3s ease;
-  }
-  @keyframes pop {
-    0% { transform: scale(0); }
-    70% { transform: scale(1.2); }
-    100% { transform: scale(1); }
-  }
+  .check { font-size: 5rem; color: var(--correct); animation: pop 0.3s ease; }
+  @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  .sub { font-size: 0.9rem; color: var(--text-faint); }
+  .errscreen .big { font-size: 4rem; }
+  .errscreen .msg { font-size: 1.1rem; color: var(--text); }
+
+  .final .medal { font-size: 5rem; }
+  .final .place { font-family: var(--font-display); font-size: 2.4rem; font-weight: 800; color: var(--text); }
+  .final .finalscore { font-size: 2rem; font-weight: 800; color: var(--accent); }
+  .final .gg { color: var(--text-dim); }
   p { font-size: 1.2rem; }
-  .sub { font-size: 0.9rem; color: #888; }
 </style>

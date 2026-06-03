@@ -17,7 +17,9 @@ async def ws_presenter(code: str, ws: WebSocket, token: str = Query(...)):
         while True:
             data = await ws.receive_json()
             msg_type = data.get("type")
-            if msg_type == "next_slide":
+            if msg_type == "start_game":
+                await manager.handle_start_game(code)
+            elif msg_type == "next_slide":
                 await manager.handle_next_slide(code)
             elif msg_type == "prev_slide":
                 await manager.handle_prev_slide(code)
@@ -27,6 +29,8 @@ async def ws_presenter(code: str, ws: WebSocket, token: str = Query(...)):
                 await manager.handle_reveal(code)
             elif msg_type == "show_leaderboard":
                 await manager.handle_show_leaderboard(code)
+            elif msg_type == "end_game":
+                await manager.handle_end_game(code)
     except WebSocketDisconnect:
         s2 = manager.get(code)
         if s2 and s2.presenter_ws is ws:
