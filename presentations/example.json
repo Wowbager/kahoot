@@ -1,0 +1,55 @@
+{
+  "title": "Science & Geography Quiz",
+  "slides": [
+    {
+      "type": "presentation",
+      "content": "# Welcome to the Quiz! 🎉\n\nGet your phones ready.\n\n**Join at the code shown on screen.**\n\n---\n\nWe have **5 questions** — let's see who knows the most!"
+    },
+    {
+      "type": "single_choice",
+      "question": "What is the capital of France?",
+      "options": ["London", "Paris", "Berlin", "Rome"],
+      "correct": [1],
+      "time_limit": 20
+    },
+    {
+      "type": "true_false",
+      "question": "Water boils at 100 °C at sea level.",
+      "correct": true,
+      "time_limit": 15
+    },
+    {
+      "type": "presentation",
+      "content": "## Half-time!\n\nYou're doing great. Two more questions to go.\n\n> *Speed matters — faster correct answers score more points!*"
+    },
+    {
+      "type": "multiple_choice",
+      "question": "Which of these are mammals?",
+      "options": ["Eagle", "Dolphin", "Shark", "Bat"],
+      "correct": [1, 3],
+      "time_limit": 30
+    },
+    {
+      "type": "number_slider",
+      "question": "How many bones are in the adult human body?",
+      "min": 100,
+      "max": 400,
+      "correct": 206,
+      "time_limit": 30
+    },
+    {
+      "type": "multiple_matching",
+      "question": "Match each country to its capital city.",
+      "pairs": [
+        {"left": "Japan", "right": "Tokyo"},
+        {"left": "Brazil", "right": "Brasília"},
+        {"left": "Egypt", "right": "Cairo"}
+      ],
+      "time_limit": 45
+    },
+    {
+      "type": "presentation",
+      "content": "# That's a wrap! 🏆\n\nCheck the leaderboard for final standings.\n\nThanks for playing!"
+    }
+  ]
+}
