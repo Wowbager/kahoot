@@ -51,11 +51,15 @@
 
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
+  $: questionDeadline = $game.questionStartedAt && $game.timeLimit
+    ? $game.questionStartedAt + ($game.timeLimit * 1000)
+    : null;
+  $: timeExpired = questionDeadline !== null && _now >= questionDeadline;
   // Countdown until answering opens; the server emits the open moment.
   $: countdown = (($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && $game.questionStartedAt && _now < $game.questionStartedAt)
     ? Math.ceil(($game.questionStartedAt - _now) / 1000)
     : 0;
-  $: showPreview = ($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && !submitted;
+  $: showPreview = ($game.phase === 'countdown' || ($game.phase === 'active' && (!$game.answersOpen || timeExpired))) && !submitted;
 </script>
 
 <div class="play bg-animated">
@@ -88,7 +92,7 @@
         <div class="type-badge">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
         <div class="preview-q">{slide?.question ?? ''}</div>
         <div class="cdnum">{countdown}</div>
-        <div class="cd-label">Get ready!</div>
+        <div class="cd-label">{timeExpired ? "Time's up!" : 'Get ready!'}</div>
       </div>
 
     {:else if $game.phase === 'active' && slide}
