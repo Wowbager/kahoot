@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
 COPY presentations/ ./presentations/
+COPY sounds/ ./sounds/
 COPY --from=frontend /build/dist ./frontend/dist
 
 EXPOSE 8000

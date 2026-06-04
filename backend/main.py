@@ -37,6 +37,10 @@ app.add_middleware(
 app.include_router(api_router)
 app.include_router(ws_router)
 
+sounds_folder = Path(__file__).parent.parent / "sounds"
+if sounds_folder.exists():
+    app.mount("/sounds", StaticFiles(directory=str(sounds_folder)), name="sounds")
+
 # Serve built frontend in production
 frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dist.exists():

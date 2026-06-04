@@ -1,4 +1,6 @@
 <script>
+    import { onMount } from "svelte";
+
   export let standings = [];
 
   // Order on the podium: 2nd (left), 1st (centre, tallest), 3rd (right)
@@ -18,7 +20,15 @@
     color: ['#e84393', '#1368ce', '#ffa602', '#26890c', '#fbbf24'][i % 5],
     size: 6 + Math.random() * 8,
   }));
+
+  onMount(() => {
+    audio.play();
+  });
+
+  let audio;
 </script>
+
+<audio src="/sounds/outro.mp3" bind:this={audio}></audio>
 
 <div class="podium-screen">
   <div class="confetti">
