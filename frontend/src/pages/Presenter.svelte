@@ -141,7 +141,7 @@
   .stage { position: relative; height: 100%; width: 100%; overflow: hidden; }
   .content { height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; }
   .revealed { display: flex; flex-direction: column; align-items: center; gap: 2rem; padding: 2rem; width: 100%; }
-  .pres { padding: clamp(2rem, 6vw, 5rem); max-width: 1000px; width: 100%; font-size: clamp(1.1rem, 2.2vw, 1.6rem); }
+  .pres { padding: clamp(1rem, 3vw, 2.5rem); max-width: 1400px; width: 100%; font-size: clamp(1.25rem, 2.5vw, 2rem); }
   .get-ready { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; text-align: center; padding: 3rem; }
   .ready-label { font-size: 1.4rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 3px; }
   .ready-q { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; max-width: 900px; }

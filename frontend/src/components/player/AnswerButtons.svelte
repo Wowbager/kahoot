@@ -5,7 +5,6 @@
   export let slide = null;
   export let submitted = false;
 
-  // true_false or single_choice or multiple_choice
   const COLORS = ['#e84393', '#1368ce', '#ffa602', '#26890c'];
   const SHAPES = ['▲', '◆', '●', '■'];
 
@@ -13,7 +12,9 @@
 
   function toggle(idx) {
     if (submitted) return;
-    if (slide.type === 'single_choice' || slide.type === 'true_false') {
+    if (slide.type === 'true_false') {
+      dispatch('answer', idx === 0); // 0 = True (boolean true), 1 = False
+    } else if (slide.type === 'single_choice') {
       dispatch('answer', idx);
     } else {
       // multiple_choice
@@ -35,7 +36,7 @@
 </script>
 
 <div class="buttons" style="--count:{options.length}">
-  {#each options as opt, i}
+  {#each options as _opt, i}
     <button
       class="btn"
       class:selected={selected.includes(i)}
@@ -45,7 +46,6 @@
       disabled={submitted}
     >
       <span class="shape">{SHAPES[i % 4]}</span>
-      <span class="label">{opt}</span>
     </button>
   {/each}
 </div>
@@ -71,27 +71,21 @@
   }
   .btn {
     border: none;
-    border-radius: 12px;
+    border-radius: 16px;
     color: #fff;
-    font-size: clamp(1rem, 4vw, 1.4rem);
-    font-weight: 700;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
-    padding: 0.8rem;
-    min-height: 80px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    min-height: 130px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
     transition: transform 0.1s, opacity 0.2s;
     -webkit-tap-highlight-color: transparent;
   }
-  .btn:active:not(:disabled) { transform: scale(0.97); }
-  .btn.selected { outline: 4px solid #fff; }
+  .btn:active:not(:disabled) { transform: scale(0.95); }
+  .btn.selected { outline: 5px solid #fff; }
   .btn.submitted { opacity: 0.5; cursor: default; }
-  .shape { font-size: 1.5rem; }
-  .label { text-align: center; word-break: break-word; }
+  .shape { font-size: 3.5rem; }
   .submit-wrap { padding: 0 0.8rem 0.8rem; }
   .submit-btn {
     width: 100%;

@@ -204,7 +204,8 @@ class SessionManager:
         slide = s.current_slide()
         s.phase = QuestionPhase.ACTIVE
         s.answers = {}
-        s.question_started_at = time.time()
+        # Delay answer-open by 5 s so the preview countdown plays first
+        s.question_started_at = time.time() + 5
         s.touch()
 
         # Prepare shuffled right column for matching

@@ -1,4 +1,5 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
   import Timer from '../Timer.svelte';
   export let slide = null;
   export let startedAt = null;
@@ -6,6 +7,16 @@
 
   const COLORS = ['#e84393', '#1368ce', '#ffa602', '#26890c'];
   const SHAPES = ['▲', '◆', '●', '■'];
+
+  let _now = Date.now();
+  let _tick;
+  onMount(() => { _tick = setInterval(() => { _now = Date.now(); }, 100); });
+  onDestroy(() => clearInterval(_tick));
+
+  $: countdown = (startedAt && _now < startedAt)
+    ? Math.ceil((startedAt - _now) / 1000)
+    : 0;
+  $: isPreview = countdown > 0;
 </script>
 
 <div class="wrap">
@@ -36,6 +47,12 @@
   <div class="timer-wrap">
     <Timer {timeLimit} {startedAt} />
   </div>
+
+  {#if isPreview}
+    <div class="cd-overlay">
+      <div class="cd-num">{countdown}</div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -47,6 +64,7 @@
     height: 100%;
     padding: 2rem;
     gap: 2rem;
+    position: relative;
   }
   .question {
     font-family: var(--font-display);
@@ -75,4 +93,29 @@
   .bar-track { height: 100%; width: 40%; background: var(--primary); border-radius: 10px; }
   .match-hint { font-size: 1.5rem; color: var(--text-dim); }
   .timer-wrap { position: absolute; top: 2rem; right: 2rem; }
+
+  /* Countdown overlay */
+  .cd-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    border-radius: inherit;
+  }
+  .cd-num {
+    font-family: var(--font-display);
+    font-size: clamp(8rem, 20vw, 16rem);
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+    animation: cdpop 0.4s ease;
+    line-height: 1;
+  }
+  @keyframes cdpop {
+    0%   { transform: scale(1.3); opacity: 0; }
+    100% { transform: scale(1);   opacity: 1; }
+  }
 </style>
