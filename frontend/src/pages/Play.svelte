@@ -51,13 +51,14 @@
 
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
-  // Countdown until answering opens (question_started_at is set a few seconds ahead)
-  $: countdown = ($game.phase === 'active' && $game.questionStartedAt && _now < $game.questionStartedAt)
+  // In preview until the server opens answering (it emits the open moment).
+  $: inPreview = $game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen);
+  $: countdown = (inPreview && $game.questionStartedAt && _now < $game.questionStartedAt)
     ? Math.ceil(($game.questionStartedAt - _now) / 1000)
     : 0;
-  $: showPreview = $game.phase === 'active' && countdown > 0 && !submitted;
+  $: showPreview = inPreview && !submitted;
   // Stage 1 shows only the question type; once reveal time passes we move to
-  // stage 2 which shows the question text (answers stay hidden until countdown ends).
+  // stage 2 which shows the question text (answers stay hidden until the server opens answering).
   $: showTypeOnly = showPreview && $game.questionRevealAt && _now < $game.questionRevealAt;
 </script>
 

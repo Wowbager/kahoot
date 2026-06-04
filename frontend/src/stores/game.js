@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 
 export const game = writable({
-  phase: 'idle',         // idle | active | revealed | finished
+  phase: 'idle',         // idle | countdown | active | revealed | finished
   started: false,        // false while in the pre-game lobby
   finished: false,
   slideIndex: 0,
@@ -14,6 +14,7 @@ export const game = writable({
   questionStartedAt: null,  // unix ms — when answering opens
   questionRevealAt: null,   // unix ms — when the question text is revealed (stage 2)
   timeLimit: 0,
+  answersOpen: false,
   myAnswer: null,
   myScore: 0,
   myRank: null,
@@ -43,13 +44,14 @@ export function applyMessage(msg) {
           questionStartedAt: msg.question_started_at || null,
           questionRevealAt: msg.reveal_question_at || null,
           timeLimit: msg.time_limit || 0,
+          answersOpen: !!msg.answers_open,
           myAnswer: null,
           distribution: null,
           results: null,
         };
 
       case 'game_started':
-        return { ...g, started: true, finished: false, phase: 'idle' };
+        return { ...g, started: true, finished: false, phase: 'idle', answersOpen: false };
 
       case 'slide_changed':
         return {
@@ -59,6 +61,7 @@ export function applyMessage(msg) {
           slide: msg.slide,
           phase: 'idle',
           answerCount: 0,
+          answersOpen: false,
           myAnswer: null,
           questionStartedAt: null,
           questionRevealAt: null,
@@ -69,16 +72,27 @@ export function applyMessage(msg) {
       case 'question_start':
         return {
           ...g,
-          phase: 'active',
+          phase: 'countdown',
           slide: msg.slide,
           slideIndex: msg.slide_index,
           questionStartedAt: msg.started_at,
           questionRevealAt: msg.reveal_question_at ?? null,
           timeLimit: msg.time_limit,
+          answersOpen: !!msg.answers_open,
           myAnswer: null,
           answerCount: 0,
           distribution: null,
           results: null,
+        };
+
+      case 'question_open':
+        return {
+          ...g,
+          phase: 'active',
+          answersOpen: true,
+          slideIndex: msg.slide_index ?? g.slideIndex,
+          questionStartedAt: msg.started_at ?? g.questionStartedAt,
+          timeLimit: msg.time_limit ?? g.timeLimit,
         };
 
       case 'answer_accepted':
@@ -91,6 +105,7 @@ export function applyMessage(msg) {
         return {
           ...g,
           phase: 'revealed',
+          answersOpen: false,
           myAnswer: msg.your_answer,
           myScore: msg.total_score,
           myRank: msg.rank ?? g.myRank,
@@ -108,6 +123,7 @@ export function applyMessage(msg) {
         return {
           ...g,
           phase: 'revealed',
+          answersOpen: false,
           distribution: msg.distribution,
           leaderboard: msg.leaderboard || [],
           results: { correct: msg.correct },
@@ -122,12 +138,13 @@ export function applyMessage(msg) {
       case 'game_over':
         // Stage/display receive `standings`; players receive their own `rank`.
         if (msg.standings) {
-          return { ...g, phase: 'finished', finished: true, leaderboard: msg.standings };
+          return { ...g, phase: 'finished', finished: true, answersOpen: false, leaderboard: msg.standings };
         }
         return {
           ...g,
           phase: 'finished',
           finished: true,
+          answersOpen: false,
           myRank: msg.rank ?? g.myRank,
           totalPlayers: msg.total ?? g.totalPlayers,
           myScore: msg.score ?? g.myScore,

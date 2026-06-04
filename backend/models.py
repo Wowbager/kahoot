@@ -81,6 +81,7 @@ class Presentation(BaseModel):
 
 class QuestionPhase(str, Enum):
     IDLE = "idle"
+    COUNTDOWN = "countdown"
     ACTIVE = "active"
     REVEALED = "revealed"
     FINISHED = "finished"

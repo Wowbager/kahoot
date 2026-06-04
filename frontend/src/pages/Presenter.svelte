@@ -35,6 +35,7 @@
     const g = $game;
     if (g.finished) return null;
     if (!g.started) return 'Start';
+    if (g.phase === 'countdown') return 'Starting…';
     if (g.phase === 'active') return 'Reveal';
     if (g.phase === 'revealed') return isLast ? 'Finish' : 'Next';
     if (isQuestion) return 'Start question';
@@ -45,6 +46,7 @@
     const g = $game;
     if (g.finished) return;
     if (!g.started) { sendWS({ type: 'start_game' }); return; }
+    if (g.phase === 'countdown') return;
     if (g.phase === 'active') { sendWS({ type: 'reveal_answers' }); return; }
     if (g.phase === 'revealed') {
       sendWS({ type: isLast ? 'end_game' : 'next_slide' });
@@ -95,8 +97,8 @@
     {:else if $game.finished || $game.phase === 'finished'}
       <Podium standings={$game.leaderboard} />
 
-    {:else if $game.phase === 'active'}
-      <QuestionDisplay slide={$game.slide} startedAt={$game.questionStartedAt} revealAt={$game.questionRevealAt} timeLimit={$game.timeLimit} />
+    {:else if $game.phase === 'active' || $game.phase === 'countdown'}
+      <QuestionDisplay slide={$game.slide} startedAt={$game.questionStartedAt} revealAt={$game.questionRevealAt} timeLimit={$game.timeLimit} answersOpen={$game.answersOpen} />
 
     {:else if $game.phase === 'revealed'}
       <div class="revealed">
@@ -132,7 +134,7 @@
       <button class="btn ghost" on:click={showLeaderboard} title="Show leaderboard">📊</button>
     {/if}
     {#if actionLabel}
-      <button class="btn btn-primary" on:click={advance} title="Advance (Space)">{actionLabel} →</button>
+      <button class="btn btn-primary" on:click={advance} title="Advance (Space)" disabled={$game.phase === 'countdown'}>{actionLabel} →</button>
     {/if}
   </div>
 </div>
