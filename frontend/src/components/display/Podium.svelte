@@ -1,4 +1,8 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
+  import { tweened } from 'svelte/motion';
+  import { cubicOut } from 'svelte/easing';
+
   export let standings = [];
 
   // Order on the podium: 2nd (left), 1st (centre, tallest), 3rd (right)
@@ -10,34 +14,68 @@
   const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
   const heights = { 1: '100%', 2: '72%', 3: '54%' };
 
-  // A handful of confetti pieces with randomised timing/position
-  const confetti = Array.from({ length: 60 }, (_, i) => ({
+  // Suspenseful staged reveal: 3rd → 2nd → winner.
+  // step: 0 suspense · 1 reveal 3rd · 2 reveal 2nd · 3 winner spotlight · 4 celebrate
+  let step = 0;
+  let timers = [];
+  // Each place gets a count-up tween that starts when its block is revealed.
+  const scores = { 1: tweened(0, { duration: 1100, easing: cubicOut }),
+                   2: tweened(0, { duration: 900, easing: cubicOut }),
+                   3: tweened(0, { duration: 900, easing: cubicOut }) };
+
+  function scoreOf(place) {
+    const row = standings[place - 1];
+    return row ? row.score : 0;
+  }
+
+  onMount(() => {
+    timers.push(setTimeout(() => { step = 1; scores[3].set(scoreOf(3)); }, 900));
+    timers.push(setTimeout(() => { step = 2; scores[2].set(scoreOf(2)); }, 2200));
+    timers.push(setTimeout(() => { step = 3; }, 3600));
+    timers.push(setTimeout(() => { step = 4; scores[1].set(scoreOf(1)); }, 4100));
+  });
+  onDestroy(() => timers.forEach(clearTimeout));
+
+  $: revealStep = { 1: 3, 2: 2, 3: 1 }; // place -> step at which it appears
+  $: winner = top[0];
+
+  // Confetti: a continuous gentle fall plus a celebratory burst on the winner reveal.
+  const PALETTE = ['#e84393', '#1368ce', '#ffa602', '#26890c', '#fbbf24'];
+  const confetti = Array.from({ length: 120 }, (_, i) => ({
     left: Math.random() * 100,
     delay: Math.random() * 3,
     dur: 2.5 + Math.random() * 2.5,
-    color: ['#e84393', '#1368ce', '#ffa602', '#26890c', '#fbbf24'][i % 5],
+    color: PALETTE[i % PALETTE.length],
     size: 6 + Math.random() * 8,
   }));
 </script>
 
 <div class="podium-screen">
-  <div class="confetti">
-    {#each confetti as c}
-      <span
-        style="left:{c.left}%;animation-delay:{c.delay}s;animation-duration:{c.dur}s;background:{c.color};width:{c.size}px;height:{c.size}px"
-      ></span>
-    {/each}
-  </div>
+  {#if step >= 4}
+    <div class="confetti">
+      {#each confetti as c}
+        <span
+          style="left:{c.left}%;animation-delay:{c.delay}s;animation-duration:{c.dur}s;background:{c.color};width:{c.size}px;height:{c.size}px"
+        ></span>
+      {/each}
+    </div>
+  {/if}
 
-  <h1 class="headline">🏆 Final Results</h1>
+  {#if step < 3}
+    <h1 class="headline suspense">And the winner is…</h1>
+  {:else}
+    <h1 class="headline champ">🏆 {winner?.nickname ?? 'Champion'}</h1>
+  {/if}
 
   <div class="stage">
-    {#each ordered as p}
-      <div class="slot place-{p.place}">
+    {#each ordered as p (p.nickname)}
+      <div class="slot place-{p.place}" class:revealed={step >= revealStep[p.place]} class:isWinner={p.place === 1 && step >= 3}>
+        {#if p.place === 1 && step >= 3}<div class="crown">👑</div>{/if}
         <div class="medal">{medals[p.place]}</div>
         <div class="name">{p.nickname}</div>
-        <div class="score">{p.score.toLocaleString()}</div>
+        <div class="score">{Math.round($scores[p.place] ?? 0).toLocaleString()}</div>
         <div class="block" style="height:{heights[p.place]}">
+          {#if p.place === 1}<div class="spotlight"></div>{/if}
           <span class="place-num">{p.place}</span>
         </div>
       </div>
@@ -58,11 +96,18 @@
     overflow: hidden;
   }
   .headline {
-    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.8rem);
     margin-bottom: 2rem;
     color: var(--accent);
     text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    text-align: center;
   }
+  .headline.suspense { color: var(--text-dim); animation: pulse 1.2s ease-in-out infinite; }
+  .headline.champ { animation: champIn 0.6s cubic-bezier(0.2, 1.2, 0.4, 1) both; text-shadow: 0 0 40px rgba(251,191,36,0.5); }
+  @keyframes pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  @keyframes champIn { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
   .stage {
     display: flex;
     align-items: flex-end;
@@ -72,7 +117,16 @@
     width: 100%;
     max-width: 900px;
   }
-  .slot { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; max-width: 240px; }
+  .slot {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    flex: 1; max-width: 240px; position: relative;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .slot.revealed { opacity: 1; transform: translateY(0); }
+  .crown { font-size: clamp(2rem, 4vw, 3rem); animation: crownDrop 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+  @keyframes crownDrop { 0% { transform: translateY(-40px) scale(0.4); opacity: 0; } 70% { transform: translateY(4px) scale(1.1); } 100% { transform: translateY(0) scale(1); opacity: 1; } }
   .medal { font-size: clamp(2rem, 5vw, 3.5rem); }
   .name { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.1rem, 2.4vw, 1.8rem); text-align: center; }
   .score { color: var(--accent); font-weight: 700; font-size: clamp(1rem, 2vw, 1.4rem); margin-bottom: 0.6rem; }
@@ -86,19 +140,36 @@
     justify-content: center;
     padding-top: 0.6rem;
     transform-origin: bottom;
-    animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    position: relative;
+    overflow: visible;
   }
-  .place-1 .block { background: linear-gradient(180deg, #fbbf24, #d97706); animation-delay: 0.45s; }
-  .place-2 .block { animation-delay: 0.2s; }
-  .place-3 .block { animation-delay: 0s; }
+  .place-1 .block { background: linear-gradient(180deg, #fbbf24, #d97706); }
+  .isWinner .block { box-shadow: var(--shadow-lg), 0 0 60px rgba(251, 191, 36, 0.55); animation: winnerGlow 2s ease-in-out infinite; }
+  @keyframes winnerGlow {
+    0%, 100% { box-shadow: var(--shadow-lg), 0 0 50px rgba(251, 191, 36, 0.45); }
+    50% { box-shadow: var(--shadow-lg), 0 0 80px rgba(251, 191, 36, 0.75); }
+  }
+  .spotlight {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 320%;
+    height: 200%;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at bottom, rgba(251, 191, 36, 0.35), transparent 65%);
+    pointer-events: none;
+    z-index: -1;
+    animation: fadeIn 0.8s ease both;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .place-num { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: rgba(255,255,255,0.85); }
-  @keyframes rise { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
 
   .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .confetti span {
     position: absolute;
     top: -20px;
     border-radius: 2px;
+    will-change: transform;
     animation-name: fall;
     animation-timing-function: linear;
     animation-iteration-count: infinite;
@@ -106,5 +177,11 @@
   @keyframes fall {
     0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
     100% { transform: translateY(105vh) rotate(540deg); opacity: 0.9; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slot { transition: none; opacity: 1; transform: none; }
+    .headline.suspense, .headline.champ, .crown, .isWinner .block, .spotlight { animation: none; }
+    .confetti { display: none; }
   }
 </style>

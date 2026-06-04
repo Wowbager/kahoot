@@ -35,6 +35,7 @@ class SessionData:
     finished: bool = False   # True once the podium/game-over has been shown
     players: dict[str, Player] = field(default_factory=dict)
     answers: dict[str, object] = field(default_factory=dict)
+    answer_times: dict[str, float] = field(default_factory=dict)  # nickname -> submit time.time()
     question_started_at: Optional[float] = None  # time.time()
     shuffled_right: Optional[list[str]] = None   # for multiple_matching
     last_activity: float = field(default_factory=time.time)
@@ -107,8 +108,11 @@ class SessionManager:
     async def register_player(self, code: str, nickname: str, ws: WebSocket) -> bool:
         s = self._sessions[code]
         if nickname in s.players and nickname in s.player_ws:
-            return False  # duplicate
-        s.players[nickname] = Player(nickname=nickname)
+            return False  # duplicate (still connected)
+        # Reconnecting with a known nickname keeps the accumulated score/streak;
+        # only a brand-new nickname starts a fresh Player.
+        if nickname not in s.players:
+            s.players[nickname] = Player(nickname=nickname)
         s.player_ws[nickname] = ws
         s.touch()
         await self._send(ws, self._state_snapshot(s, "player"))
@@ -181,6 +185,7 @@ class SessionManager:
             s.current_index += 1
             s.phase = QuestionPhase.IDLE
             s.answers = {}
+            s.answer_times = {}
             s.question_started_at = None
             s.shuffled_right = None
             s.touch()
@@ -192,6 +197,7 @@ class SessionManager:
             s.current_index -= 1
             s.phase = QuestionPhase.IDLE
             s.answers = {}
+            s.answer_times = {}
             s.question_started_at = None
             s.shuffled_right = None
             s.touch()
@@ -204,8 +210,10 @@ class SessionManager:
         slide = s.current_slide()
         s.phase = QuestionPhase.ACTIVE
         s.answers = {}
-        # Delay answer-open by 5 s so the preview countdown plays first
-        s.question_started_at = time.time() + 5
+        s.answer_times = {}
+        # Delay answer-open so the lead-in (type → question) plays first.
+        # Must match LEAD_IN_MS in frontend/src/lib/leadin.js.
+        s.question_started_at = time.time() + 6
         s.touch()
 
         # Prepare shuffled right column for matching
@@ -243,8 +251,12 @@ class SessionManager:
         is_correct_map: dict[str, bool] = {}
         streak_map: dict[str, int] = {}
         bonus_map: dict[str, int] = {}
+        opened = s.question_started_at or time.time()
         for nickname, answer in s.answers.items():
-            elapsed = time.time() - (s.question_started_at or time.time())
+            # Per-player elapsed: measured from when answering opened to when this
+            # player submitted, so the speed bonus differs per player.
+            submitted_at = s.answer_times.get(nickname, time.time())
+            elapsed = max(0.0, submitted_at - opened)
             pts, correct = calculate_score(slide, answer, elapsed, s.shuffled_right)
             player = s.players[nickname]
             if correct:
@@ -326,6 +338,7 @@ class SessionManager:
         if nickname in s.answers:
             return  # already answered
         s.answers[nickname] = answer
+        s.answer_times[nickname] = time.time()
         s.touch()
 
         # Ack to player
@@ -432,14 +445,14 @@ class SessionManager:
         if slide.type == "number_slider":
             return slide.correct
         if slide.type == "multiple_matching":
-            # return pairs as [[left_idx, right_idx_in_shuffled], ...]
+            # return correct pairs as token pairs [["L<i>", "R<j>"], ...]
             if not shuffled_right:
                 return []
             result = []
             for li, pair in enumerate(slide.pairs):
                 try:
                     ri = shuffled_right.index(pair.right)
-                    result.append([li, ri])
+                    result.append([f"L{li}", f"R{ri}"])
                 except ValueError:
                     pass
             return result

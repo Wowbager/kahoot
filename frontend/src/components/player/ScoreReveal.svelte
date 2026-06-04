@@ -37,13 +37,16 @@
   }
   .correct { background: rgba(34, 197, 94, 0.18); }
   .wrong { background: rgba(239, 68, 68, 0.15); }
-  .icon { font-size: 5rem; line-height: 1; }
+  .icon { font-size: 5rem; line-height: 1; animation: pop 0.4s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
   .correct .icon { color: var(--correct); }
   .wrong .icon { color: var(--wrong); }
   .verdict { font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; }
   .correct .verdict { color: var(--correct); }
   .wrong .verdict { color: var(--wrong); }
-  .delta { font-size: 2.4rem; font-weight: 800; color: var(--accent); }
+  .delta { font-size: 2.4rem; font-weight: 800; color: var(--accent); animation: riseIn 0.4s ease both 0.15s; }
+  @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  @keyframes riseIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .icon, .delta { animation: none; } }
   .streak {
     font-weight: 700;
     color: #fdba74;

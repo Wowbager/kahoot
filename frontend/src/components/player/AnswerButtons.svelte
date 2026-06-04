@@ -71,32 +71,35 @@
   }
   .btn {
     border: none;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     color: #fff;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 130px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-    transition: transform 0.1s, opacity 0.2s;
+    box-shadow: var(--shadow-md);
+    transition: transform 0.1s, opacity 0.2s, box-shadow 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
   .btn:active:not(:disabled) { transform: scale(0.95); }
-  .btn.selected { outline: 5px solid #fff; }
+  .btn.selected { box-shadow: 0 0 0 5px #fff, var(--shadow-md); }
   .btn.submitted { opacity: 0.5; cursor: default; }
-  .shape { font-size: 3.5rem; }
+  .shape { font-size: 3.5rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); }
   .submit-wrap { padding: 0 0.8rem 0.8rem; }
   .submit-btn {
     width: 100%;
     padding: 1rem;
     border: none;
-    border-radius: 12px;
-    background: #7c3aed;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--primary), var(--primary-700));
     color: #fff;
     font-size: 1.1rem;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: opacity 0.15s, transform 0.08s;
   }
-  .submit-btn:disabled { opacity: 0.4; cursor: default; }
+  .submit-btn:active:not(:disabled) { transform: scale(0.99); }
+  .submit-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
 </style>
