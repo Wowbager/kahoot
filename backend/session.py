@@ -130,8 +130,11 @@ class SessionManager:
     async def register_player(self, code: str, nickname: str, ws: WebSocket) -> bool:
         s = self._sessions[code]
         if nickname in s.players and nickname in s.player_ws:
-            return False  # duplicate
-        s.players[nickname] = Player(nickname=nickname)
+            return False  # duplicate (still connected)
+        # Reconnecting with a known nickname keeps the accumulated score/streak;
+        # only a brand-new nickname starts a fresh Player.
+        if nickname not in s.players:
+            s.players[nickname] = Player(nickname=nickname)
         s.player_ws[nickname] = ws
         s.touch()
         await self._send(ws, self._state_snapshot(s, "player"))
@@ -358,10 +361,12 @@ class SessionManager:
         is_correct_map: dict[str, bool] = {}
         streak_map: dict[str, int] = {}
         bonus_map: dict[str, int] = {}
+        opened = s.question_started_at or time.time()
         for nickname, answer in s.answers.items():
-            # Per-player elapsed time: how long *this* player took, not the reveal time.
-            answered_at = s.answer_times.get(nickname, time.time())
-            elapsed = max(0.0, answered_at - (s.question_started_at or answered_at))
+            # Per-player elapsed: measured from when answering opened to when this
+            # player submitted, so the speed bonus differs per player.
+            submitted_at = s.answer_times.get(nickname, time.time())
+            elapsed = max(0.0, submitted_at - opened)
             pts, correct = calculate_score(slide, answer, elapsed, s.shuffled_right)
             player = s.players[nickname]
             if correct:
@@ -556,14 +561,14 @@ class SessionManager:
         if slide.type == "number_slider":
             return slide.correct
         if slide.type == "multiple_matching":
-            # return pairs as [[left_idx, right_idx_in_shuffled], ...]
+            # return correct pairs as token pairs [["L<i>", "R<j>"], ...]
             if not shuffled_right:
                 return []
             result = []
             for li, pair in enumerate(slide.pairs):
                 try:
                     ri = shuffled_right.index(pair.right)
-                    result.append([li, ri])
+                    result.append([f"L{li}", f"R{ri}"])
                 except ValueError:
                     pass
             return result

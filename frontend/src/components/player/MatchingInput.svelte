@@ -66,7 +66,8 @@
     selectedIdx = null;
   }
 
-  $: allMatched = leftItems.length > 0 && pairCount === leftItems.length;
+  $: totalPairs = Math.floor(pool.length / 2);
+  $: allMatched = totalPairs > 0 && pairCount === totalPairs;
 
   function submit() {
     // Each pair is two [side, idx] cards; the server decides which are correct.
@@ -81,7 +82,7 @@
 </script>
 
 <div class="wrap">
-  <p class="hint">Tap two cards that belong together</p>
+  <p class="hint">Tap two cards that match</p>
   <div class="pool">
     {#each pool as item, i}
       {@const pid = pairMap[i]}
@@ -100,7 +101,7 @@
   </div>
 
   <button class="submit-btn" disabled={!allMatched || submitted} on:click={submit}>
-    {submitted ? 'Answer submitted!' : `Submit (${pairCount}/${leftItems.length} paired)`}
+    {submitted ? 'Answer submitted!' : `Submit (${pairCount}/${totalPairs} paired)`}
   </button>
 </div>
 
@@ -129,41 +130,44 @@
   }
   .card {
     padding: 0.6rem;
-    background: rgba(255,255,255,0.1);
+    background: var(--surface-2);
     border: 3px solid transparent;
-    border-radius: 14px;
+    border-radius: var(--radius-md);
     color: #fff;
     font-size: clamp(0.85rem, 3.5vw, 1.1rem);
     font-weight: 700;
     cursor: pointer;
     text-align: center;
     word-break: break-word;
-    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s, box-shadow 0.15s;
     -webkit-tap-highlight-color: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+    box-shadow: var(--shadow-sm);
     min-height: 0;
   }
   .card:active:not(:disabled) { transform: scale(0.96); }
   .card.selected {
     border-color: #fff;
-    background: rgba(124,58,237,0.4);
-    box-shadow: 0 0 0 3px rgba(124,58,237,0.5);
+    background: var(--primary-600);
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.45);
   }
-  .card.paired { opacity: 0.9; }
+  .card.paired { opacity: 0.92; }
   .card:disabled { cursor: default; }
   .submit-btn {
     width: 100%;
-    padding: 0.9rem;
+    padding: 0.95rem;
     border: none;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--primary, #7c3aed), #6d28d9);
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--primary), var(--primary-700));
     color: #fff;
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: opacity 0.15s, transform 0.08s;
   }
-  .submit-btn:disabled { opacity: 0.5; cursor: default; }
+  .submit-btn:active:not(:disabled) { transform: scale(0.99); }
+  .submit-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
 </style>

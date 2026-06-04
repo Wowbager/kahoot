@@ -31,5 +31,10 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .msg { font-size: 1.3rem; color: var(--text-dim); text-align: center; font-weight: 600; }
-  .count { font-size: 1rem; color: var(--primary); font-weight: 700; }
+  .count { font-size: 1rem; color: var(--text-faint); font-weight: 700; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  }
 </style>
