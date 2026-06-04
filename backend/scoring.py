@@ -24,7 +24,7 @@ def _speed_multiplier(elapsed: float, time_limit: int) -> float:
     if time_limit <= 0:
         return 1.0
     remaining = max(0.0, time_limit - elapsed)
-    return remaining / time_limit
+    return min(1.0, remaining / time_limit)
 
 
 def calculate_score(

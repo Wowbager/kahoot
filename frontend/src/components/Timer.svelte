@@ -9,7 +9,7 @@
   $: if (startedAt) {
     clearInterval(interval);
     interval = setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000;
+      const elapsed = Math.max(0, (Date.now() - startedAt) / 1000);
       remaining = Math.max(0, timeLimit - elapsed);
       if (remaining <= 0) clearInterval(interval);
     }, 100);

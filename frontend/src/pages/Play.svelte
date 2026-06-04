@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { connectWS, closeWS, sendWS, onWsMessage } from '../lib/ws.js';
   import { game } from '../stores/game.js';
@@ -20,7 +20,6 @@
     connectWS(`${proto}://${location.host}/ws/player/${code}/${encodeURIComponent(nickname)}`);
   }
 
-  // Stop reconnect loop and surface duplicate-nickname / closed-session errors.
   const off = onWsMessage((msg) => {
     if (msg.type === 'error') {
       errored = msg.message || 'Could not join the game.';
@@ -28,7 +27,11 @@
     }
   });
 
-  onDestroy(() => { off(); closeWS(); });
+  // Tick for countdown
+  let _now = Date.now();
+  let _nowTick;
+  onMount(() => { _nowTick = setInterval(() => { _now = Date.now(); }, 100); });
+  onDestroy(() => { off(); closeWS(); clearInterval(_nowTick); });
 
   function submitAnswer(answer) {
     sendWS({ type: 'submit_answer', answer });
@@ -38,8 +41,21 @@
     return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
   }
 
+  const TYPE_LABELS = {
+    true_false: 'True / False',
+    single_choice: 'Single Choice',
+    multiple_choice: 'Multiple Choice',
+    number_slider: 'Number Slider',
+    multiple_matching: 'Matching',
+  };
+
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
+  // Countdown until answering opens (question_started_at is set 5 s in the future)
+  $: countdown = ($game.phase === 'active' && $game.questionStartedAt && _now < $game.questionStartedAt)
+    ? Math.ceil(($game.questionStartedAt - _now) / 1000)
+    : 0;
+  $: showPreview = $game.phase === 'active' && countdown > 0 && !submitted;
 </script>
 
 <div class="play bg-animated">
@@ -66,6 +82,14 @@
 
     {:else if $game.phase === 'revealed'}
       <ScoreReveal results={$game.results} myScore={$game.myScore} rank={$game.myRank} totalPlayers={$game.totalPlayers} />
+
+    {:else if showPreview}
+      <div class="preview">
+        <div class="type-badge">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
+        <div class="preview-q">{slide?.question ?? ''}</div>
+        <div class="cdnum">{countdown}</div>
+        <div class="cd-label">Get ready!</div>
+      </div>
 
     {:else if $game.phase === 'active' && slide}
       {#if submitted}
@@ -120,4 +144,46 @@
   .final .finalscore { font-size: 2rem; font-weight: 800; color: var(--accent); }
   .final .gg { color: var(--text-dim); }
   p { font-size: 1.2rem; }
+
+  /* Countdown preview */
+  .preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 1.2rem;
+    padding: 2rem;
+    text-align: center;
+  }
+  .type-badge {
+    background: var(--primary, #7c3aed);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 0.3rem 1rem;
+    border-radius: 999px;
+  }
+  .preview-q {
+    font-family: var(--font-display, sans-serif);
+    font-size: clamp(1.1rem, 5vw, 1.6rem);
+    font-weight: 700;
+    color: var(--text, #fff);
+    max-width: 340px;
+  }
+  .cdnum {
+    font-family: var(--font-display, sans-serif);
+    font-size: clamp(5rem, 20vw, 8rem);
+    font-weight: 900;
+    color: var(--primary, #7c3aed);
+    line-height: 1;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.85; }
+  }
+  .cd-label { font-size: 0.9rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 2px; }
 </style>
