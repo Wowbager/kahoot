@@ -19,6 +19,45 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export function randomNickname() {
+export function lameNickname() {
   return `${pick(ADJECTIVES)} ${pick(NOUNS)}`;
+}
+
+const FIRST = [
+  "to je",
+  "Marvánek",
+  "EVA",
+  "PETR",
+  "my jsme",
+  "po krásné cestě",
+  "soudruh Sahur",
+  "Sahurek",
+  "triple T",
+  "Očí",
+  "Očíčko",
+  "Kolí",
+  "Koláček",
+  "SSSSSSSSS",
+  "bro",
+  "čau, já jsem"
+];
+
+const SECOND = [
+  "z centra dojeďte",
+  "EVA",
+  "PETR",
+  "Petr Fiala",
+  "Karel Kirk",
+  "Marvánek",
+  "centrum",
+  "k němu",
+  "zpátky do centra",
+  "Marvánek",
+  "ČESKO",
+  "TESCO",
+  "ve stavu blaženosti"
+]
+
+export function randomNickname() {
+  return `${pick(FIRST)} ${pick(SECOND)}`;
 }
