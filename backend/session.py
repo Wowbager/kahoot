@@ -14,6 +14,10 @@ from models import (
 )
 from scoring import calculate_score, streak_bonus
 
+# Intro stages played after the presenter starts a question, before answering opens.
+TYPE_STAGE_SECONDS = 3      # stage 1: question type only
+QUESTION_STAGE_SECONDS = 3  # stage 2: question text shown, answers still hidden
+
 
 def _generate_pin(length: int = 6) -> str:
     """A short numeric game PIN, easy to type on a phone keypad."""
@@ -35,7 +39,9 @@ class SessionData:
     finished: bool = False   # True once the podium/game-over has been shown
     players: dict[str, Player] = field(default_factory=dict)
     answers: dict[str, object] = field(default_factory=dict)
-    question_started_at: Optional[float] = None  # time.time()
+    answer_times: dict[str, float] = field(default_factory=dict)  # nickname → time.time() when answered
+    question_started_at: Optional[float] = None  # time.time() — when answering opens / scoring clock starts
+    question_reveal_at: Optional[float] = None   # time.time() — when the question text is revealed (stage 2)
     shuffled_right: Optional[list[str]] = None   # for multiple_matching
     last_activity: float = field(default_factory=time.time)
 
@@ -181,7 +187,9 @@ class SessionManager:
             s.current_index += 1
             s.phase = QuestionPhase.IDLE
             s.answers = {}
+            s.answer_times = {}
             s.question_started_at = None
+            s.question_reveal_at = None
             s.shuffled_right = None
             s.touch()
             await self._broadcast_slide_changed(s)
@@ -192,7 +200,9 @@ class SessionManager:
             s.current_index -= 1
             s.phase = QuestionPhase.IDLE
             s.answers = {}
+            s.answer_times = {}
             s.question_started_at = None
+            s.question_reveal_at = None
             s.shuffled_right = None
             s.touch()
             await self._broadcast_slide_changed(s)
@@ -204,8 +214,14 @@ class SessionManager:
         slide = s.current_slide()
         s.phase = QuestionPhase.ACTIVE
         s.answers = {}
-        # Delay answer-open by 5 s so the preview countdown plays first
-        s.question_started_at = time.time() + 5
+        s.answer_times = {}
+        # Three-stage intro before answering opens:
+        #   stage 1 (TYPE_STAGE_SECONDS): show only the question type
+        #   stage 2 (QUESTION_STAGE_SECONDS): show the question, answers still hidden
+        #   stage 3: answering opens (scoring clock starts at question_started_at)
+        now = time.time()
+        s.question_reveal_at = now + TYPE_STAGE_SECONDS
+        s.question_started_at = s.question_reveal_at + QUESTION_STAGE_SECONDS
         s.touch()
 
         # Prepare shuffled right column for matching
@@ -217,6 +233,7 @@ class SessionManager:
             s.shuffled_right = None
 
         started_at_ms = int(s.question_started_at * 1000)
+        reveal_at_ms = int(s.question_reveal_at * 1000)
         safe = self._safe_slide(slide, "player")
         if slide.type == "multiple_matching":
             safe["left_items"] = [p.left for p in slide.pairs]
@@ -227,6 +244,7 @@ class SessionManager:
             "slide_index": s.current_index,
             "slide": safe,
             "started_at": started_at_ms,
+            "reveal_question_at": reveal_at_ms,
             "time_limit": slide.time_limit,
         })
 
@@ -244,7 +262,9 @@ class SessionManager:
         streak_map: dict[str, int] = {}
         bonus_map: dict[str, int] = {}
         for nickname, answer in s.answers.items():
-            elapsed = time.time() - (s.question_started_at or time.time())
+            # Per-player elapsed time: how long *this* player took, not the reveal time.
+            answered_at = s.answer_times.get(nickname, time.time())
+            elapsed = max(0.0, answered_at - (s.question_started_at or answered_at))
             pts, correct = calculate_score(slide, answer, elapsed, s.shuffled_right)
             player = s.players[nickname]
             if correct:
@@ -326,6 +346,7 @@ class SessionManager:
         if nickname in s.answers:
             return  # already answered
         s.answers[nickname] = answer
+        s.answer_times[nickname] = time.time()  # per-player timestamp drives the speed bonus
         s.touch()
 
         # Ack to player
@@ -418,6 +439,7 @@ class SessionManager:
             "players": [p.model_dump() for p in s.players.values()],
             "answer_count": len(s.answers),
             "question_started_at": int(s.question_started_at * 1000) if s.question_started_at else None,
+            "reveal_question_at": int(s.question_reveal_at * 1000) if s.question_reveal_at else None,
             "time_limit": getattr(slide, "time_limit", None),
         }
 

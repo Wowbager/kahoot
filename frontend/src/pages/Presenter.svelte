@@ -96,7 +96,7 @@
       <Podium standings={$game.leaderboard} />
 
     {:else if $game.phase === 'active'}
-      <QuestionDisplay slide={$game.slide} startedAt={$game.questionStartedAt} timeLimit={$game.timeLimit} />
+      <QuestionDisplay slide={$game.slide} startedAt={$game.questionStartedAt} revealAt={$game.questionRevealAt} timeLimit={$game.timeLimit} />
 
     {:else if $game.phase === 'revealed'}
       <div class="revealed">

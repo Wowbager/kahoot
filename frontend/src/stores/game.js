@@ -11,7 +11,8 @@ export const game = writable({
   code: '',
   players: [],
   answerCount: 0,
-  questionStartedAt: null,  // unix ms
+  questionStartedAt: null,  // unix ms — when answering opens
+  questionRevealAt: null,   // unix ms — when the question text is revealed (stage 2)
   timeLimit: 0,
   myAnswer: null,
   myScore: 0,
@@ -40,6 +41,7 @@ export function applyMessage(msg) {
           players: msg.players || [],
           answerCount: msg.answer_count || 0,
           questionStartedAt: msg.question_started_at || null,
+          questionRevealAt: msg.reveal_question_at || null,
           timeLimit: msg.time_limit || 0,
           myAnswer: null,
           distribution: null,
@@ -59,6 +61,7 @@ export function applyMessage(msg) {
           answerCount: 0,
           myAnswer: null,
           questionStartedAt: null,
+          questionRevealAt: null,
           distribution: null,
           results: null,
         };
@@ -70,6 +73,7 @@ export function applyMessage(msg) {
           slide: msg.slide,
           slideIndex: msg.slide_index,
           questionStartedAt: msg.started_at,
+          questionRevealAt: msg.reveal_question_at ?? null,
           timeLimit: msg.time_limit,
           myAnswer: null,
           answerCount: 0,
