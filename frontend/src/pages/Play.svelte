@@ -51,9 +51,14 @@
 
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
-  // In preview until the server opens answering (it emits the open moment).
-  $: inPreview = $game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen);
-  $: countdown = (inPreview && $game.questionStartedAt && _now < $game.questionStartedAt)
+  $: questionDeadline = $game.questionStartedAt && $game.timeLimit
+    ? $game.questionStartedAt + ($game.timeLimit * 1000)
+    : null;
+  $: timeExpired = questionDeadline !== null && _now >= questionDeadline;
+  // In preview until the server opens answering (it emits the open moment), or once time has run out.
+  $: inPreview = $game.phase === 'countdown' || ($game.phase === 'active' && (!$game.answersOpen || timeExpired));
+  // Countdown until answering opens; the server emits the open moment.
+  $: countdown = (($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && $game.questionStartedAt && _now < $game.questionStartedAt)
     ? Math.ceil(($game.questionStartedAt - _now) / 1000)
     : 0;
   $: showPreview = inPreview && !submitted;
@@ -99,7 +104,7 @@
         <div class="type-badge">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
         <div class="preview-q">{slide?.question ?? ''}</div>
         <div class="cdnum">{countdown}</div>
-        <div class="cd-label">Get ready!</div>
+        <div class="cd-label">{timeExpired ? "Time's up!" : 'Get ready!'}</div>
       </div>
 
     {:else if $game.phase === 'active' && slide}

@@ -46,6 +46,7 @@ class SessionData:
     shuffled_right: Optional[list[str]] = None   # for multiple_matching
     last_activity: float = field(default_factory=time.time)
     question_open_task: Optional[asyncio.Task] = None
+    question_timeout_task: Optional[asyncio.Task] = None
 
     # WebSocket registries
     presenter_ws: Optional[WebSocket] = None
@@ -65,6 +66,15 @@ class SessionData:
         if self.question_open_task and not self.question_open_task.done():
             self.question_open_task.cancel()
         self.question_open_task = None
+
+    def cancel_question_timeout_task(self):
+        if self.question_timeout_task and not self.question_timeout_task.done():
+            self.question_timeout_task.cancel()
+        self.question_timeout_task = None
+
+    def cancel_question_tasks(self):
+        self.cancel_question_open_task()
+        self.cancel_question_timeout_task()
 
 
 class SessionManager:
@@ -172,7 +182,7 @@ class SessionManager:
 
     async def handle_end_game(self, code: str):
         s = self._sessions[code]
-        s.cancel_question_open_task()
+        s.cancel_question_tasks()
         s.finished = True
         s.phase = QuestionPhase.FINISHED
         s.answers_open = False
@@ -191,9 +201,10 @@ class SessionManager:
                 "score": s.players[nickname].score if nickname in s.players else 0,
             })
 
-    async def handle_next_slide(self, code: str):
+    async def handle_next_slide(self, code: str, from_timeout: bool = False):
         s = self._sessions[code]
-        s.cancel_question_open_task()
+        if not from_timeout:
+            s.cancel_question_tasks()
         if s.current_index < len(s.presentation.slides) - 1:
             s.current_index += 1
             s.phase = QuestionPhase.IDLE
@@ -208,7 +219,7 @@ class SessionManager:
 
     async def handle_prev_slide(self, code: str):
         s = self._sessions[code]
-        s.cancel_question_open_task()
+        s.cancel_question_tasks()
         if s.current_index > 0:
             s.current_index -= 1
             s.phase = QuestionPhase.IDLE
@@ -226,7 +237,7 @@ class SessionManager:
         if not s.is_question_slide() or s.phase != QuestionPhase.IDLE:
             return
         slide = s.current_slide()
-        s.cancel_question_open_task()
+        s.cancel_question_tasks()
         s.phase = QuestionPhase.COUNTDOWN
         s.answers_open = False
         s.answers = {}
@@ -292,11 +303,51 @@ class SessionManager:
             "time_limit": getattr(s.current_slide(), "time_limit", None),
         })
 
+        s.question_timeout_task = asyncio.create_task(
+            self._auto_reveal_and_advance_after_timeout(
+                code,
+                started_at_ms,
+                s.current_index,
+                getattr(s.current_slide(), "time_limit", 0),
+            )
+        )
+
+    async def _auto_reveal_and_advance_after_timeout(
+        self,
+        code: str,
+        started_at_ms: int,
+        slide_index: int,
+        time_limit: int,
+    ):
+        try:
+            await asyncio.sleep(max(0, time_limit))
+        except asyncio.CancelledError:
+            return
+
+        s = self._sessions.get(code)
+        if not s or s.phase != QuestionPhase.ACTIVE or not s.answers_open:
+            return
+        if s.current_index != slide_index:
+            return
+        if not s.question_started_at or int(s.question_started_at * 1000) != started_at_ms:
+            return
+
+        await self._handle_reveal(code, from_timeout=True)
+
+        s = self._sessions.get(code)
+        if s:
+            s.question_timeout_task = None
+
     async def handle_reveal(self, code: str):
+        await self._handle_reveal(code, from_timeout=False)
+
+    async def _handle_reveal(self, code: str, from_timeout: bool):
         s = self._sessions[code]
         if s.phase != QuestionPhase.ACTIVE:
             return
         s.cancel_question_open_task()
+        if not from_timeout:
+            s.cancel_question_timeout_task()
         s.phase = QuestionPhase.REVEALED
         s.answers_open = False
         slide = s.current_slide()
@@ -330,6 +381,10 @@ class SessionManager:
         for nickname, player in s.players.items():
             if nickname not in s.answers:
                 player.streak = 0
+                score_deltas[nickname] = 0
+                is_correct_map[nickname] = False
+                streak_map[nickname] = 0
+                bonus_map[nickname] = 0
 
         # Build answer distribution for display
         distribution = self._build_distribution(slide, s.answers, s.shuffled_right)
