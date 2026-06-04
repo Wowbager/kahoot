@@ -561,14 +561,15 @@ class SessionManager:
         if slide.type == "number_slider":
             return slide.correct
         if slide.type == "multiple_matching":
-            # return correct pairs as token pairs [["L<i>", "R<j>"], ...]
+            # return correct pairs as [[left_idx, right_idx_in_shuffled], ...] so the
+            # display can map them back to the actual item text.
             if not shuffled_right:
                 return []
             result = []
             for li, pair in enumerate(slide.pairs):
                 try:
                     ri = shuffled_right.index(pair.right)
-                    result.append([f"L{li}", f"R{ri}"])
+                    result.append([li, ri])
                 except ValueError:
                     pass
             return result

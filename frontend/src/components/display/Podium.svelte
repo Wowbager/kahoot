@@ -19,9 +19,11 @@
   let step = 0;
   let timers = [];
   // Each place gets a count-up tween that starts when its block is revealed.
-  const scores = { 1: tweened(0, { duration: 1100, easing: cubicOut }),
-                   2: tweened(0, { duration: 900, easing: cubicOut }),
-                   3: tweened(0, { duration: 900, easing: cubicOut }) };
+  // (Named stores — Svelte can't auto-subscribe to a store looked up dynamically.)
+  const score1 = tweened(0, { duration: 1100, easing: cubicOut });
+  const score2 = tweened(0, { duration: 900, easing: cubicOut });
+  const score3 = tweened(0, { duration: 900, easing: cubicOut });
+  $: scoreVals = { 1: $score1, 2: $score2, 3: $score3 };
 
   function scoreOf(place) {
     const row = standings[place - 1];
@@ -30,15 +32,15 @@
 
   let audio;
   onMount(() => {
-    timers.push(setTimeout(() => { step = 1; scores[3].set(scoreOf(3)); }, 900));
-    timers.push(setTimeout(() => { step = 2; scores[2].set(scoreOf(2)); }, 2200));
+    timers.push(setTimeout(() => { step = 1; score3.set(scoreOf(3)); }, 900));
+    timers.push(setTimeout(() => { step = 2; score2.set(scoreOf(2)); }, 2200));
     // Winner reveal — punctuate it with the outro fanfare.
     timers.push(setTimeout(() => { step = 3; audio?.play?.().catch(() => {}); }, 3600));
-    timers.push(setTimeout(() => { step = 4; scores[1].set(scoreOf(1)); }, 4100));
+    timers.push(setTimeout(() => { step = 4; score1.set(scoreOf(1)); }, 4100));
   });
   onDestroy(() => timers.forEach(clearTimeout));
 
-  $: revealStep = { 1: 3, 2: 2, 3: 1 }; // place -> step at which it appears
+  const revealStep = { 1: 3, 2: 2, 3: 1 }; // place -> step at which it appears
   $: winner = top[0];
 
   // Confetti: a continuous gentle fall plus a celebratory burst on the winner reveal.
@@ -77,7 +79,7 @@
         {#if p.place === 1 && step >= 3}<div class="crown">👑</div>{/if}
         <div class="medal">{medals[p.place]}</div>
         <div class="name">{p.nickname}</div>
-        <div class="score">{Math.round($scores[p.place] ?? 0).toLocaleString()}</div>
+        <div class="score">{Math.round(scoreVals[p.place] ?? 0).toLocaleString()}</div>
         <div class="block" style="height:{heights[p.place]}">
           {#if p.place === 1}<div class="spotlight"></div>{/if}
           <span class="place-num">{p.place}</span>

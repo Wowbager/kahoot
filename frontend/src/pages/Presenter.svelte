@@ -105,7 +105,7 @@
         {#if $game.distribution}
           <ResultsChart slide={$game.slide} distribution={$game.distribution} correct={$game.results?.correct} />
         {/if}
-        {#if $game.leaderboard?.length}
+        {#if $game.leaderboard?.length && !isLast}
           <Leaderboard standings={$game.leaderboard} />
         {/if}
       </div>
