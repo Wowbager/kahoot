@@ -68,7 +68,10 @@
   // stage 2 which shows the question text (answers stay hidden until the server opens answering).
   $: showTypeOnly = showPreview && $game.questionRevealAt && _now < $game.questionRevealAt;
 
-  // --- Final-screen reveal: a short suspense beat, then count the score up ---
+  // --- Final-screen reveal ---
+  // Hold the player's placement back until the big screen has revealed the top
+  // three (its podium reveals 3rd→2nd→winner over ~4.1s), so phones never spoil it.
+  const FINAL_REVEAL_DELAY_MS = 4600;
   let finalReady = false;
   let finalDone = false;
   const finalScore = tweened(0, { duration: 1400, easing: cubicOut });
@@ -77,7 +80,7 @@
     setTimeout(() => {
       finalReady = true;
       finalScore.set($game.myScore ?? 0);
-    }, 650);
+    }, FINAL_REVEAL_DELAY_MS);
   }
   $: isWinner = $game.myRank === 1;
   $: medalFor = (r) => (r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : '🎉');
