@@ -3,11 +3,19 @@
   import Timer from '../Timer.svelte';
   export let slide = null;
   export let startedAt = null;
+  export let revealAt = null;
   export let timeLimit = 30;
   export let answersOpen = false;
 
   const COLORS = ['#e84393', '#1368ce', '#ffa602', '#26890c'];
   const SHAPES = ['▲', '◆', '●', '■'];
+  const TYPE_LABELS = {
+    true_false: 'True / False',
+    single_choice: 'Single Choice',
+    multiple_choice: 'Multiple Choice',
+    number_slider: 'Number Slider',
+    multiple_matching: 'Matching',
+  };
 
   let _now = Date.now();
   let _tick;
@@ -17,42 +25,55 @@
   $: countdown = (!answersOpen && startedAt && _now < startedAt)
     ? Math.ceil((startedAt - _now) / 1000)
     : 0;
+  // In preview until the server opens answering.
   $: isPreview = !answersOpen;
+  // Stage 1: only the question type. Stage 2: question text but no answers.
+  $: showTypeOnly = isPreview && revealAt && _now < revealAt;
+  // Answers are only ever shown once answering has opened (never during preview).
+  $: showAnswers = answersOpen;
 </script>
 
 <div class="wrap">
-  <div class="question">{slide?.question ?? ''}</div>
+  {#if showTypeOnly}
+    <div class="type-stage">
+      <div class="type-label">Question type</div>
+      <div class="type-badge">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
+    </div>
+  {:else}
+    <div class="question">{slide?.question ?? ''}</div>
 
-  {#if slide?.type === 'true_false'}
-    <div class="options tf">
-      <div class="opt" style="background:#26890c">✓ True</div>
-      <div class="opt" style="background:#e84393">✗ False</div>
-    </div>
-  {:else if slide?.type === 'single_choice' || slide?.type === 'multiple_choice'}
-    <div class="options grid" style="--cols:{Math.min(slide.options?.length ?? 2, 2)}">
-      {#each (slide.options ?? []) as opt, i}
-        <div class="opt" style="background:{COLORS[i % 4]}">{SHAPES[i % 4]} {opt}</div>
-      {/each}
-    </div>
-  {:else if slide?.type === 'number_slider'}
-    <div class="slider-hint">
-      <span class="range">Range: {slide.min} – {slide.max}</span>
-      <div class="slider-bar">
-        <div class="bar-track"></div>
-      </div>
-    </div>
-  {:else if slide?.type === 'multiple_matching'}
-    <div class="match-hint">Match the pairs on your phone</div>
+    {#if showAnswers}
+      {#if slide?.type === 'true_false'}
+        <div class="options tf">
+          <div class="opt" style="background:#26890c">✓ True</div>
+          <div class="opt" style="background:#e84393">✗ False</div>
+        </div>
+      {:else if slide?.type === 'single_choice' || slide?.type === 'multiple_choice'}
+        <div class="options grid" style="--cols:{Math.min(slide.options?.length ?? 2, 2)}">
+          {#each (slide.options ?? []) as opt, i}
+            <div class="opt" style="background:{COLORS[i % 4]}">{SHAPES[i % 4]} {opt}</div>
+          {/each}
+        </div>
+      {:else if slide?.type === 'number_slider'}
+        <div class="slider-hint">
+          <span class="range">Range: {slide.min} – {slide.max}</span>
+          <div class="slider-bar">
+            <div class="bar-track"></div>
+          </div>
+        </div>
+      {:else if slide?.type === 'multiple_matching'}
+        <div class="match-hint">Match the pairs on your phone</div>
+      {/if}
+    {/if}
   {/if}
 
   <div class="timer-wrap">
     <Timer {timeLimit} {startedAt} />
   </div>
 
-  {#if isPreview}
-    <div class="cd-overlay">
-      <div class="cd-num">{countdown}</div>
-    </div>
+  {#if isPreview && countdown > 0}
+    <!-- Plain countdown — never blurs the content, so the question stays readable in stage 2 -->
+    <div class="cd-num">{countdown}</div>
   {/if}
 </div>
 
@@ -95,29 +116,45 @@
   .match-hint { font-size: 1.5rem; color: var(--text-dim); }
   .timer-wrap { position: absolute; top: 2rem; right: 2rem; }
 
-  /* Countdown overlay */
-  .cd-overlay {
-    position: fixed;
-    inset: 0;
+  /* Stage 1: question type only */
+  .type-stage {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
-    border-radius: inherit;
+    gap: 1.5rem;
   }
-  .cd-num {
+  .type-label {
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+  .type-badge {
     font-family: var(--font-display);
-    font-size: clamp(8rem, 20vw, 16rem);
+    font-size: clamp(2.5rem, 8vw, 6rem);
     font-weight: 900;
     color: #fff;
+    background: rgba(124, 58, 237, 0.45);
+    padding: 1rem 3rem;
+    border-radius: var(--radius-pill, 999px);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    animation: cdpop 0.4s ease;
+  }
+
+  /* Plain (non-blurring) preview countdown */
+  .cd-num {
+    font-family: var(--font-display);
+    font-size: clamp(4rem, 12vw, 9rem);
+    font-weight: 900;
+    color: #fff;
+    opacity: 0.85;
     text-shadow: 0 4px 30px rgba(0,0,0,0.5);
     animation: cdpop 0.4s ease;
     line-height: 1;
   }
   @keyframes cdpop {
     0%   { transform: scale(1.3); opacity: 0; }
-    100% { transform: scale(1);   opacity: 1; }
+    100% { transform: scale(1);   opacity: 0.85; }
   }
 
   @keyframes bar-track-fill {

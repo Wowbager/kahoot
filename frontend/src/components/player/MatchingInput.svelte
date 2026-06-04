@@ -37,7 +37,6 @@
 
   function tapItem(i) {
     if (submitted) return;
-    const item = pool[i];
 
     // Tap a paired card → unpair both
     if (pairMap[i] != null) {
@@ -58,12 +57,8 @@
     if (selectedIdx === null) { selectedIdx = i; return; }
     if (selectedIdx === i)    { selectedIdx = null; return; }
 
-    const sel = pool[selectedIdx];
-
-    // Both from the same column → just move the selection
-    if (sel.side === item.side) { selectedIdx = i; return; }
-
-    // Valid pair
+    // Any two cards may be paired (no left→right hint) — it's up to the
+    // player to figure out which cards actually belong together.
     const pid = nextPairId++;
     pairMap = { ...pairMap, [selectedIdx]: pid, [i]: pid };
     pairColors = { ...pairColors, [pid]: PAIR_COLORS[pairCount % PAIR_COLORS.length] };
@@ -74,13 +69,13 @@
   $: allMatched = leftItems.length > 0 && pairCount === leftItems.length;
 
   function submit() {
+    // Each pair is two [side, idx] cards; the server decides which are correct.
     const byPair = {};
     for (const [k, pid] of Object.entries(pairMap)) {
       const item = pool[Number(k)];
-      if (!byPair[pid]) byPair[pid] = {};
-      byPair[pid][item.side] = item.idx;
+      (byPair[pid] ??= []).push([item.side, item.idx]);
     }
-    const answer = Object.values(byPair).map(p => [p.left, p.right]);
+    const answer = Object.values(byPair);
     dispatch('answer', answer);
   }
 </script>

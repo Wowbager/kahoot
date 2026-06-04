@@ -55,11 +55,16 @@
     ? $game.questionStartedAt + ($game.timeLimit * 1000)
     : null;
   $: timeExpired = questionDeadline !== null && _now >= questionDeadline;
+  // In preview until the server opens answering (it emits the open moment), or once time has run out.
+  $: inPreview = $game.phase === 'countdown' || ($game.phase === 'active' && (!$game.answersOpen || timeExpired));
   // Countdown until answering opens; the server emits the open moment.
   $: countdown = (($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && $game.questionStartedAt && _now < $game.questionStartedAt)
     ? Math.ceil(($game.questionStartedAt - _now) / 1000)
     : 0;
-  $: showPreview = ($game.phase === 'countdown' || ($game.phase === 'active' && (!$game.answersOpen || timeExpired))) && !submitted;
+  $: showPreview = inPreview && !submitted;
+  // Stage 1 shows only the question type; once reveal time passes we move to
+  // stage 2 which shows the question text (answers stay hidden until the server opens answering).
+  $: showTypeOnly = showPreview && $game.questionRevealAt && _now < $game.questionRevealAt;
 </script>
 
 <div class="play bg-animated">
@@ -86,6 +91,13 @@
 
     {:else if $game.phase === 'revealed'}
       <ScoreReveal results={$game.results} myScore={$game.myScore} rank={$game.myRank} totalPlayers={$game.totalPlayers} />
+
+    {:else if showTypeOnly}
+      <div class="preview">
+        <div class="cd-label">Question type</div>
+        <div class="type-badge big">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
+        <div class="cd-label">Get ready!</div>
+      </div>
 
     {:else if showPreview}
       <div class="preview">
@@ -169,6 +181,12 @@
     letter-spacing: 2px;
     padding: 0.3rem 1rem;
     border-radius: 999px;
+  }
+  .type-badge.big {
+    font-size: clamp(1.3rem, 7vw, 2.2rem);
+    letter-spacing: 3px;
+    padding: 0.8rem 2rem;
+    animation: pulse 1.2s ease-in-out infinite;
   }
   .preview-q {
     font-family: var(--font-display, sans-serif);
