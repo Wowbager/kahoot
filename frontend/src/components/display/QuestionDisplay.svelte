@@ -4,6 +4,7 @@
   export let slide = null;
   export let startedAt = null;
   export let timeLimit = 30;
+  export let answersOpen = false;
 
   const COLORS = ['#e84393', '#1368ce', '#ffa602', '#26890c'];
   const SHAPES = ['▲', '◆', '●', '■'];
@@ -13,10 +14,10 @@
   onMount(() => { _tick = setInterval(() => { _now = Date.now(); }, 100); });
   onDestroy(() => clearInterval(_tick));
 
-  $: countdown = (startedAt && _now < startedAt)
+  $: countdown = (!answersOpen && startedAt && _now < startedAt)
     ? Math.ceil((startedAt - _now) / 1000)
     : 0;
-  $: isPreview = countdown > 0;
+  $: isPreview = !answersOpen;
 </script>
 
 <div class="wrap">
@@ -90,7 +91,7 @@
   .slider-hint { text-align: center; }
   .range { font-size: 1.4rem; color: var(--text-dim); }
   .slider-bar { margin-top: 1rem; width: 400px; height: 20px; background: rgba(255,255,255,0.2); border-radius: 10px; }
-  .bar-track { height: 100%; width: 40%; background: var(--primary); border-radius: 10px; }
+  .bar-track { height: 100%; width: 0%; background: var(--primary); border-radius: 10px; animation: bar-track-fill 5s ease infinite; }
   .match-hint { font-size: 1.5rem; color: var(--text-dim); }
   .timer-wrap { position: absolute; top: 2rem; right: 2rem; }
 
@@ -117,5 +118,17 @@
   @keyframes cdpop {
     0%   { transform: scale(1.3); opacity: 0; }
     100% { transform: scale(1);   opacity: 1; }
+  }
+
+  @keyframes bar-track-fill {
+    0% {
+      width: 10%;
+    }
+    50% {
+      width: 100%;
+    }
+    100% {
+      width: 10%;
+    }
   }
 </style>

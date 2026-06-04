@@ -51,11 +51,11 @@
 
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
-  // Countdown until answering opens (question_started_at is set 5 s in the future)
-  $: countdown = ($game.phase === 'active' && $game.questionStartedAt && _now < $game.questionStartedAt)
+  // Countdown until answering opens; the server emits the open moment.
+  $: countdown = (($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && $game.questionStartedAt && _now < $game.questionStartedAt)
     ? Math.ceil(($game.questionStartedAt - _now) / 1000)
     : 0;
-  $: showPreview = $game.phase === 'active' && countdown > 0 && !submitted;
+  $: showPreview = ($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && !submitted;
 </script>
 
 <div class="play bg-animated">

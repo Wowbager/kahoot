@@ -33,11 +33,13 @@ class SessionData:
     phase: QuestionPhase = QuestionPhase.IDLE
     started: bool = False    # False while in the pre-game lobby
     finished: bool = False   # True once the podium/game-over has been shown
+    answers_open: bool = False
     players: dict[str, Player] = field(default_factory=dict)
     answers: dict[str, object] = field(default_factory=dict)
-    question_started_at: Optional[float] = None  # time.time()
+    question_started_at: Optional[float] = None  # time.time() when answers open
     shuffled_right: Optional[list[str]] = None   # for multiple_matching
     last_activity: float = field(default_factory=time.time)
+    question_open_task: Optional[asyncio.Task] = None
 
     # WebSocket registries
     presenter_ws: Optional[WebSocket] = None
@@ -52,6 +54,11 @@ class SessionData:
 
     def touch(self):
         self.last_activity = time.time()
+
+    def cancel_question_open_task(self):
+        if self.question_open_task and not self.question_open_task.done():
+            self.question_open_task.cancel()
+        self.question_open_task = None
 
 
 class SessionManager:
@@ -152,14 +159,17 @@ class SessionManager:
         s.finished = False
         s.current_index = 0
         s.phase = QuestionPhase.IDLE
+        s.answers_open = False
         s.touch()
         await self._broadcast_all(s, {"type": "game_started"})
         await self._broadcast_slide_changed(s)
 
     async def handle_end_game(self, code: str):
         s = self._sessions[code]
+        s.cancel_question_open_task()
         s.finished = True
         s.phase = QuestionPhase.FINISHED
+        s.answers_open = False
         s.touch()
         ranked, rank_map = self._ranked(s)
         # Stage / display: full final standings (rendered as a top-3 podium)
@@ -177,9 +187,11 @@ class SessionManager:
 
     async def handle_next_slide(self, code: str):
         s = self._sessions[code]
+        s.cancel_question_open_task()
         if s.current_index < len(s.presentation.slides) - 1:
             s.current_index += 1
             s.phase = QuestionPhase.IDLE
+            s.answers_open = False
             s.answers = {}
             s.question_started_at = None
             s.shuffled_right = None
@@ -188,9 +200,11 @@ class SessionManager:
 
     async def handle_prev_slide(self, code: str):
         s = self._sessions[code]
+        s.cancel_question_open_task()
         if s.current_index > 0:
             s.current_index -= 1
             s.phase = QuestionPhase.IDLE
+            s.answers_open = False
             s.answers = {}
             s.question_started_at = None
             s.shuffled_right = None
@@ -202,9 +216,11 @@ class SessionManager:
         if not s.is_question_slide() or s.phase != QuestionPhase.IDLE:
             return
         slide = s.current_slide()
-        s.phase = QuestionPhase.ACTIVE
+        s.cancel_question_open_task()
+        s.phase = QuestionPhase.COUNTDOWN
+        s.answers_open = False
         s.answers = {}
-        # Delay answer-open by 5 s so the preview countdown plays first
+        # Answers open 5 s after the preview countdown starts.
         s.question_started_at = time.time() + 5
         s.touch()
 
@@ -228,13 +244,42 @@ class SessionManager:
             "slide": safe,
             "started_at": started_at_ms,
             "time_limit": slide.time_limit,
+            "answers_open": False,
+        })
+
+        s.question_open_task = asyncio.create_task(self._open_answers_after_delay(code, started_at_ms))
+
+    async def _open_answers_after_delay(self, code: str, started_at_ms: int):
+        delay = max(0.0, (started_at_ms / 1000) - time.time())
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+
+        s = self._sessions.get(code)
+        if not s or s.phase != QuestionPhase.COUNTDOWN:
+            return
+        if not s.question_started_at or int(s.question_started_at * 1000) != started_at_ms:
+            return
+
+        s.phase = QuestionPhase.ACTIVE
+        s.answers_open = True
+        s.question_open_task = None
+        s.touch()
+        await self._broadcast_all(s, {
+            "type": "question_open",
+            "started_at": started_at_ms,
+            "slide_index": s.current_index,
+            "time_limit": getattr(s.current_slide(), "time_limit", None),
         })
 
     async def handle_reveal(self, code: str):
         s = self._sessions[code]
         if s.phase != QuestionPhase.ACTIVE:
             return
+        s.cancel_question_open_task()
         s.phase = QuestionPhase.REVEALED
+        s.answers_open = False
         slide = s.current_slide()
         s.touch()
 
@@ -321,7 +366,7 @@ class SessionManager:
 
     async def handle_player_answer(self, code: str, nickname: str, answer):
         s = self._sessions[code]
-        if s.phase != QuestionPhase.ACTIVE:
+        if s.phase != QuestionPhase.ACTIVE or not s.answers_open:
             return
         if nickname in s.answers:
             return  # already answered
@@ -418,6 +463,7 @@ class SessionManager:
             "players": [p.model_dump() for p in s.players.values()],
             "answer_count": len(s.answers),
             "question_started_at": int(s.question_started_at * 1000) if s.question_started_at else None,
+            "answers_open": s.answers_open,
             "time_limit": getattr(slide, "time_limit", None),
         }
 
