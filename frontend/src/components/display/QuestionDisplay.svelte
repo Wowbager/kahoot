@@ -31,6 +31,29 @@
   $: showTypeOnly = isPreview && revealAt && _now < revealAt;
   // Answers are only ever shown once answering has opened (never during preview).
   $: showAnswers = answersOpen;
+
+  // For matching we show the items on the big screen too (so the back row can read
+  // them), with each column shuffled so the correct pairs never line up in a row.
+  function shuffle(arr) {
+    const a = [...(arr || [])];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  // Reshuffle only when the question changes — not on every clock tick.
+  let matchLeft = [];
+  let matchRight = [];
+  let _matchKey = null;
+  $: {
+    const key = slide?.type === 'multiple_matching' ? (slide?.question ?? '') : null;
+    if (key !== _matchKey) {
+      _matchKey = key;
+      matchLeft = shuffle(slide?.left_items);
+      matchRight = shuffle(slide?.right_items);
+    }
+  }
 </script>
 
 <div class="wrap">
@@ -62,6 +85,18 @@
           </div>
         </div>
       {:else if slide?.type === 'multiple_matching'}
+        <div class="match-cols">
+          <div class="match-col">
+            {#each matchLeft as item}
+              <div class="match-item left">{item}</div>
+            {/each}
+          </div>
+          <div class="match-col">
+            {#each matchRight as item}
+              <div class="match-item right">{item}</div>
+            {/each}
+          </div>
+        </div>
         <div class="match-hint">Match the pairs on your phone</div>
       {/if}
     {/if}
@@ -90,30 +125,52 @@
   }
   .question {
     font-family: var(--font-display);
-    font-size: clamp(1.8rem, 4vw, 3.5rem);
-    font-weight: 700;
+    font-size: clamp(2.4rem, 5.2vw, 5rem);
+    font-weight: 800;
     text-align: center;
     color: #fff;
-    max-width: 1000px;
+    max-width: 1400px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.4);
   }
-  .options { display: grid; gap: 1rem; width: 100%; max-width: 800px; }
+  .options { display: grid; gap: 1.4rem; width: 100%; max-width: 1300px; }
   .options.tf { grid-template-columns: 1fr 1fr; }
   .options.grid { grid-template-columns: repeat(var(--cols), 1fr); }
   .opt {
-    padding: 1.2rem 1.5rem;
-    border-radius: 12px;
-    font-size: clamp(1rem, 2.5vw, 1.6rem);
+    padding: 1.8rem 2rem;
+    border-radius: 18px;
+    font-size: clamp(1.6rem, 3.4vw, 3rem);
+    font-weight: 800;
+    color: #fff;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .slider-hint { text-align: center; }
+  .range { font-size: clamp(1.8rem, 3.5vw, 3rem); color: var(--text); font-weight: 700; }
+  .slider-bar { margin-top: 1.4rem; width: min(70vw, 640px); height: 28px; background: rgba(255,255,255,0.2); border-radius: 14px; }
+  .bar-track { height: 100%; width: 0%; background: var(--primary); border-radius: 14px; animation: bar-track-fill 5s ease infinite; }
+
+  /* Matching items shown on the big screen — two independently shuffled columns */
+  .match-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1.5rem, 5vw, 5rem);
+    width: 100%;
+    max-width: 1300px;
+  }
+  .match-col { display: flex; flex-direction: column; gap: 1.2rem; }
+  .match-item {
+    padding: 1.3rem 1.6rem;
+    border-radius: 16px;
+    font-size: clamp(1.4rem, 3vw, 2.6rem);
     font-weight: 700;
     color: #fff;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    word-break: break-word;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
   }
-  .slider-hint { text-align: center; }
-  .range { font-size: 1.4rem; color: var(--text-dim); }
-  .slider-bar { margin-top: 1rem; width: 400px; height: 20px; background: rgba(255,255,255,0.2); border-radius: 10px; }
-  .bar-track { height: 100%; width: 0%; background: var(--primary); border-radius: 10px; animation: bar-track-fill 5s ease infinite; }
-  .match-hint { font-size: 1.5rem; color: var(--text-dim); }
+  .match-item.left { background: rgba(124, 58, 237, 0.55); }
+  .match-item.right { background: rgba(19, 104, 206, 0.55); }
+  .match-hint { font-size: clamp(1.4rem, 2.6vw, 2.2rem); color: var(--text-dim); }
   .timer-wrap { position: absolute; top: 2rem; right: 2rem; }
 
   /* Stage 1: question type only */

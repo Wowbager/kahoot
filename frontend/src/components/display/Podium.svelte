@@ -103,7 +103,7 @@
   }
   .headline {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 5vw, 3.8rem);
+    font-size: clamp(2.8rem, 6.5vw, 5.5rem);
     margin-bottom: 2rem;
     color: var(--accent);
     text-shadow: 0 4px 20px rgba(0,0,0,0.4);
@@ -133,9 +133,9 @@
   .slot.revealed { opacity: 1; transform: translateY(0); }
   .crown { font-size: clamp(2rem, 4vw, 3rem); animation: crownDrop 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
   @keyframes crownDrop { 0% { transform: translateY(-40px) scale(0.4); opacity: 0; } 70% { transform: translateY(4px) scale(1.1); } 100% { transform: translateY(0) scale(1); opacity: 1; } }
-  .medal { font-size: clamp(2rem, 5vw, 3.5rem); }
-  .name { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.1rem, 2.4vw, 1.8rem); text-align: center; }
-  .score { color: var(--accent); font-weight: 700; font-size: clamp(1rem, 2vw, 1.4rem); margin-bottom: 0.6rem; }
+  .medal { font-size: clamp(2.6rem, 6vw, 4.5rem); }
+  .name { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.5rem, 3.2vw, 2.8rem); text-align: center; }
+  .score { color: var(--accent); font-weight: 800; font-size: clamp(1.3rem, 2.6vw, 2.2rem); margin-bottom: 0.7rem; }
   .block {
     width: 100%;
     border-radius: 14px 14px 0 0;
@@ -168,7 +168,7 @@
     animation: fadeIn 0.8s ease both;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .place-num { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: rgba(255,255,255,0.85); }
+  .place-num { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem, 4vw, 3.5rem); color: rgba(255,255,255,0.85); }
 
   .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .confetti span {

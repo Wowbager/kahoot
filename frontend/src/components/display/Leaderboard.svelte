@@ -32,18 +32,18 @@
 </div>
 
 <style>
-  .board { width: 100%; max-width: 640px; }
-  h2 { text-align: center; font-size: 2rem; margin-bottom: 1.2rem; color: var(--accent); }
-  ol { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+  .board { width: 100%; max-width: 900px; }
+  h2 { text-align: center; font-size: clamp(2.4rem, 4.5vw, 3.6rem); margin-bottom: 1.6rem; color: var(--accent); font-family: var(--font-display); }
+  ol { list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
   .entry {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0.85rem 1.2rem;
+    gap: 1.4rem;
+    padding: 1.1rem 1.6rem;
     background: var(--surface);
     border: 1px solid var(--surface-border);
     border-radius: var(--radius-md);
-    font-size: 1.15rem;
+    font-size: clamp(1.4rem, 2.8vw, 2.4rem);
     animation: slideIn 0.4s ease backwards;
   }
   .entry:nth-child(1) { animation-delay: 0.05s; }
@@ -53,8 +53,8 @@
   .entry:nth-child(5) { animation-delay: 0.25s; }
   @keyframes slideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
   .top { background: rgba(251, 191, 36, 0.14); border-color: rgba(251, 191, 36, 0.35); }
-  .rank { font-size: 1.4rem; min-width: 2.5rem; }
-  .name { flex: 1; font-weight: 600; }
-  .score { font-weight: 800; color: var(--accent); font-size: 1.25rem; }
-  .rest { text-align: center; color: var(--text-faint); margin-top: 0.9rem; font-size: 0.95rem; }
+  .rank { font-size: clamp(1.8rem, 3.4vw, 2.8rem); min-width: 3.2rem; }
+  .name { flex: 1; font-weight: 700; }
+  .score { font-weight: 800; color: var(--accent); font-size: clamp(1.5rem, 3vw, 2.6rem); }
+  .rest { text-align: center; color: var(--text-faint); margin-top: 1.1rem; font-size: clamp(1rem, 1.8vw, 1.4rem); }
 </style>

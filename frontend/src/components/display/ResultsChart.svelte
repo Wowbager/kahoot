@@ -100,30 +100,30 @@
 {/if}
 
 <style>
-  .chart { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 800px; }
-  .bar-row { display: flex; align-items: center; gap: 1rem; }
+  .chart { display: flex; flex-direction: column; gap: 1.3rem; width: 100%; max-width: 1200px; }
+  .bar-row { display: flex; align-items: center; gap: 1.4rem; }
   .label {
-    min-width: 180px;
-    padding: 0.6rem 1rem;
-    border-radius: 8px;
+    min-width: clamp(220px, 22vw, 360px);
+    padding: 1rem 1.4rem;
+    border-radius: 12px;
     color: #fff;
-    font-weight: 700;
-    font-size: 0.95rem;
+    font-weight: 800;
+    font-size: clamp(1.3rem, 2.6vw, 2.2rem);
     text-align: center;
   }
-  .bar-wrap { flex: 1; display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 4px; }
-  .bar { height: 36px; border-radius: 4px; transition: width 0.5s ease; min-width: 4px; }
-  .count { font-weight: 700; color: #fff; min-width: 2rem; }
+  .bar-wrap { flex: 1; display: flex; align-items: center; gap: 0.8rem; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 6px; }
+  .bar { height: clamp(44px, 5vw, 64px); border-radius: 8px; transition: width 0.5s ease; min-width: 6px; }
+  .count { font-weight: 800; color: #fff; min-width: 3rem; font-size: clamp(1.4rem, 2.6vw, 2.2rem); }
   .slider-result, .match-result { text-align: center; color: #ccc; }
-  .correct-value { font-size: 1.5rem; color: #fff; margin-bottom: 1rem; }
+  .correct-value { font-size: clamp(2rem, 4vw, 3.2rem); color: #fff; margin-bottom: 1.4rem; font-weight: 700; }
   .correct-value strong { color: gold; }
-  .answers-list { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
-  .val-chip { background: rgba(255,255,255,0.1); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.9rem; }
+  .answers-list { display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; }
+  .val-chip { background: rgba(255,255,255,0.1); padding: 0.5rem 1.1rem; border-radius: 24px; font-size: clamp(1.1rem, 2vw, 1.6rem); }
   .match-result {
-    width: min(100%, 760px);
+    width: min(100%, 1100px);
     margin: 0 auto;
-    padding: 1.2rem;
-    border-radius: 18px;
+    padding: 1.8rem;
+    border-radius: 22px;
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
@@ -131,47 +131,49 @@
   .match-header {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    margin-bottom: 1rem;
+    gap: 0.4rem;
+    margin-bottom: 1.4rem;
   }
   .match-title {
     font-family: var(--font-display);
-    font-size: 1.4rem;
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
     font-weight: 800;
     color: #fff;
   }
   .match-header p {
     margin: 0;
     color: var(--text-dim);
-    font-size: 0.95rem;
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
   }
   .pairs {
     display: grid;
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .pair-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem 1rem;
-    border-radius: 14px;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    border-radius: 16px;
     background: rgba(255,255,255,0.08);
   }
   .pair-left, .pair-right {
-    font-weight: 700;
+    font-weight: 800;
     color: #fff;
     word-break: break-word;
+    font-size: clamp(1.3rem, 2.6vw, 2.2rem);
   }
   .pair-arrow {
     color: gold;
-    font-size: 1.2rem;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
     font-weight: 900;
   }
   .pairs.empty {
-    padding: 0.9rem 1rem;
+    padding: 1.1rem 1.4rem;
     color: var(--text-faint);
     border: 1px dashed rgba(255,255,255,0.18);
-    border-radius: 14px;
+    border-radius: 16px;
+    font-size: 1.3rem;
   }
 </style>
