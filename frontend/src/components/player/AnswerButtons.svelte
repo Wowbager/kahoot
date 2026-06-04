@@ -35,20 +35,45 @@
     : (slide?.options ?? []);
 </script>
 
-<div class="buttons" style="--count:{options.length}">
-  {#each options as _opt, i}
+{#if slide?.type === "true_false"}
+  <div class="buttons" style="--count:2">
     <button
       class="btn"
-      class:selected={selected.includes(i)}
+      class:selected={selected.includes(0)}
       class:submitted
-      style="background:{COLORS[i % 4]}"
-      on:click={() => toggle(i)}
+      style="background:{COLORS[3]}"
+      on:click={() => toggle(0)}
       disabled={submitted}
     >
-      <span class="shape">{SHAPES[i % 4]}</span>
+      <span>✓ True</span>
     </button>
-  {/each}
-</div>
+    <button
+      class="btn"
+      class:selected={selected.includes(2)}
+      class:submitted
+      style="background:{COLORS[0]}"
+      on:click={() => toggle(2)}
+      disabled={submitted}
+    >
+      <span>✗ False</span>
+    </button>
+  </div>
+{:else}
+  <div class="buttons" style="--count:{options.length}">
+    {#each options as _opt, i}
+      <button
+        class="btn"
+        class:selected={selected.includes(i)}
+        class:submitted
+        style="background:{COLORS[i % 4]}"
+        on:click={() => toggle(i)}
+        disabled={submitted}
+      >
+        <span class="shape">{SHAPES[i % 4]}</span>
+      </button>
+    {/each}
+  </div>
+{/if}
 
 {#if slide?.type === 'multiple_choice' && !submitted}
   <div class="submit-wrap">

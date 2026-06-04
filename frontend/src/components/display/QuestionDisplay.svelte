@@ -1,36 +1,48 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import Timer from '../Timer.svelte';
-  import { leadInStage, TYPE_LABELS } from '../../lib/leadin.js';
   export let slide = null;
   export let startedAt = null;
+  export let revealAt = null;
   export let timeLimit = 30;
+  export let answersOpen = false;
 
   const COLORS = ['#e84393', '#1368ce', '#ffa602', '#26890c'];
   const SHAPES = ['▲', '◆', '●', '■'];
+  const TYPE_LABELS = {
+    true_false: 'True / False',
+    single_choice: 'Single Choice',
+    multiple_choice: 'Multiple Choice',
+    number_slider: 'Number Slider',
+    multiple_matching: 'Matching',
+  };
 
   let _now = Date.now();
   let _tick;
   onMount(() => { _tick = setInterval(() => { _now = Date.now(); }, 100); });
   onDestroy(() => clearInterval(_tick));
 
-  // 1 = type only · 2 = question text only (no answers) · 3 = question + answers, live
-  $: stage = leadInStage(startedAt, _now);
-  $: countdown = (startedAt && _now < startedAt) ? Math.ceil((startedAt - _now) / 1000) : 0;
+  $: countdown = (!answersOpen && startedAt && _now < startedAt)
+    ? Math.ceil((startedAt - _now) / 1000)
+    : 0;
+  // In preview until the server opens answering.
+  $: isPreview = !answersOpen;
+  // Stage 1: only the question type. Stage 2: question text but no answers.
+  $: showTypeOnly = isPreview && revealAt && _now < revealAt;
+  // Answers are only ever shown once answering has opened (never during preview).
+  $: showAnswers = answersOpen;
 </script>
 
 <div class="wrap">
-  {#if stage === 1}
-    <!-- Stage 1: announce the question type only -->
+  {#if showTypeOnly}
     <div class="type-stage">
+      <div class="type-label">Question type</div>
       <div class="type-badge">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
-      <div class="get-ready">Get ready…</div>
     </div>
   {:else}
-    <!-- Stage 2 & 3: question text (answers appear only in stage 3) -->
     <div class="question">{slide?.question ?? ''}</div>
 
-    {#if stage === 3}
+    {#if showAnswers}
       {#if slide?.type === 'true_false'}
         <div class="options tf">
           <div class="opt" style="background:#26890c">✓ True</div>
@@ -52,14 +64,16 @@
       {:else if slide?.type === 'multiple_matching'}
         <div class="match-hint">Match the pairs on your phone</div>
       {/if}
-
-      <div class="timer-wrap">
-        <Timer {timeLimit} {startedAt} />
-      </div>
-    {:else}
-      <!-- Stage 2: quiet countdown, no answers shown -->
-      <div class="cd-num">{countdown}</div>
     {/if}
+  {/if}
+
+  <div class="timer-wrap">
+    <Timer {timeLimit} {startedAt} />
+  </div>
+
+  {#if isPreview && countdown > 0}
+    <!-- Plain countdown — never blurs the content, so the question stays readable in stage 2 -->
+    <div class="cd-num">{countdown}</div>
   {/if}
 </div>
 
@@ -74,28 +88,6 @@
     gap: 2rem;
     position: relative;
   }
-  .type-stage {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.6rem;
-  }
-  .type-badge {
-    background: linear-gradient(135deg, var(--primary), var(--primary-700));
-    color: #fff;
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 6vw, 4rem);
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 4px;
-    padding: 1rem 2.4rem;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    animation: badgeIn 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both;
-  }
-  .get-ready { font-size: 1.4rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 4px; }
-  @keyframes badgeIn { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-
   .question {
     font-family: var(--font-display);
     font-size: clamp(1.8rem, 4vw, 3.5rem);
@@ -105,7 +97,7 @@
     max-width: 1000px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.4);
   }
-  .options { display: grid; gap: 1rem; width: 100%; max-width: 800px; animation: fadeUp 0.35s ease both; }
+  .options { display: grid; gap: 1rem; width: 100%; max-width: 800px; }
   .options.tf { grid-template-columns: 1fr 1fr; }
   .options.grid { grid-template-columns: repeat(var(--cols), 1fr); }
   .opt {
@@ -117,29 +109,63 @@
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
-  @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .slider-hint { text-align: center; animation: fadeUp 0.35s ease both; }
+  .slider-hint { text-align: center; }
   .range { font-size: 1.4rem; color: var(--text-dim); }
   .slider-bar { margin-top: 1rem; width: 400px; height: 20px; background: rgba(255,255,255,0.2); border-radius: 10px; }
-  .bar-track { height: 100%; width: 40%; background: var(--primary); border-radius: 10px; }
-  .match-hint { font-size: 1.5rem; color: var(--text-dim); animation: fadeUp 0.35s ease both; }
+  .bar-track { height: 100%; width: 0%; background: var(--primary); border-radius: 10px; animation: bar-track-fill 5s ease infinite; }
+  .match-hint { font-size: 1.5rem; color: var(--text-dim); }
   .timer-wrap { position: absolute; top: 2rem; right: 2rem; }
 
+  /* Stage 1: question type only */
+  .type-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .type-label {
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+  .type-badge {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 8vw, 6rem);
+    font-weight: 900;
+    color: #fff;
+    background: rgba(124, 58, 237, 0.45);
+    padding: 1rem 3rem;
+    border-radius: var(--radius-pill, 999px);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    animation: cdpop 0.4s ease;
+  }
+
+  /* Plain (non-blurring) preview countdown */
   .cd-num {
     font-family: var(--font-display);
-    font-size: clamp(6rem, 16vw, 12rem);
+    font-size: clamp(4rem, 12vw, 9rem);
     font-weight: 900;
-    color: var(--primary);
-    line-height: 1;
-    text-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    color: #fff;
+    opacity: 0.85;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.5);
     animation: cdpop 0.4s ease;
+    line-height: 1;
   }
   @keyframes cdpop {
     0%   { transform: scale(1.3); opacity: 0; }
-    100% { transform: scale(1);   opacity: 1; }
+    100% { transform: scale(1);   opacity: 0.85; }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .type-badge, .options, .slider-hint, .match-hint, .cd-num { animation: none !important; }
+  @keyframes bar-track-fill {
+    0% {
+      width: 10%;
+    }
+    50% {
+      width: 100%;
+    }
+    100% {
+      width: 10%;
+    }
   }
 </style>

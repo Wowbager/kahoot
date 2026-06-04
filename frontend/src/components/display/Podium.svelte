@@ -28,10 +28,12 @@
     return row ? row.score : 0;
   }
 
+  let audio;
   onMount(() => {
     timers.push(setTimeout(() => { step = 1; scores[3].set(scoreOf(3)); }, 900));
     timers.push(setTimeout(() => { step = 2; scores[2].set(scoreOf(2)); }, 2200));
-    timers.push(setTimeout(() => { step = 3; }, 3600));
+    // Winner reveal — punctuate it with the outro fanfare.
+    timers.push(setTimeout(() => { step = 3; audio?.play?.().catch(() => {}); }, 3600));
     timers.push(setTimeout(() => { step = 4; scores[1].set(scoreOf(1)); }, 4100));
   });
   onDestroy(() => timers.forEach(clearTimeout));
@@ -49,6 +51,8 @@
     size: 6 + Math.random() * 8,
   }));
 </script>
+
+<audio src="/sounds/outro.mp3" bind:this={audio}></audio>
 
 <div class="podium-screen">
   {#if step >= 4}

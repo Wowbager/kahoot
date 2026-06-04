@@ -5,7 +5,6 @@
   import { cubicOut } from 'svelte/easing';
   import { connectWS, closeWS, sendWS, onWsMessage } from '../lib/ws.js';
   import { game } from '../stores/game.js';
-  import { leadInStage, TYPE_LABELS } from '../lib/leadin.js';
   import WaitingScreen from '../components/player/WaitingScreen.svelte';
   import AnswerButtons from '../components/player/AnswerButtons.svelte';
   import SliderInput from '../components/player/SliderInput.svelte';
@@ -44,16 +43,30 @@
     return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
   }
 
+  const TYPE_LABELS = {
+    true_false: 'True / False',
+    single_choice: 'Single Choice',
+    multiple_choice: 'Multiple Choice',
+    number_slider: 'Number Slider',
+    multiple_matching: 'Matching',
+  };
+
   $: submitted = $game.myAnswer !== null && $game.myAnswer !== undefined;
   $: slide = $game.slide;
-  // Three-stage lead-in before answering opens (1 = type, 2 = question, 3 = answers live)
-  $: leadIn = ($game.phase === 'active' && $game.questionStartedAt && !submitted)
-    ? leadInStage($game.questionStartedAt, _now)
-    : 3;
-  $: countdown = ($game.phase === 'active' && $game.questionStartedAt && _now < $game.questionStartedAt)
+  $: questionDeadline = $game.questionStartedAt && $game.timeLimit
+    ? $game.questionStartedAt + ($game.timeLimit * 1000)
+    : null;
+  $: timeExpired = questionDeadline !== null && _now >= questionDeadline;
+  // In preview until the server opens answering (it emits the open moment), or once time has run out.
+  $: inPreview = $game.phase === 'countdown' || ($game.phase === 'active' && (!$game.answersOpen || timeExpired));
+  // Countdown until answering opens; the server emits the open moment.
+  $: countdown = (($game.phase === 'countdown' || ($game.phase === 'active' && !$game.answersOpen)) && $game.questionStartedAt && _now < $game.questionStartedAt)
     ? Math.ceil(($game.questionStartedAt - _now) / 1000)
     : 0;
-  $: showPreview = $game.phase === 'active' && leadIn < 3 && !submitted;
+  $: showPreview = inPreview && !submitted;
+  // Stage 1 shows only the question type; once reveal time passes we move to
+  // stage 2 which shows the question text (answers stay hidden until the server opens answering).
+  $: showTypeOnly = showPreview && $game.questionRevealAt && _now < $game.questionRevealAt;
 
   // --- Final-screen reveal: a short suspense beat, then count the score up ---
   let finalReady = false;
@@ -115,13 +128,19 @@
     {:else if $game.phase === 'revealed'}
       <ScoreReveal results={$game.results} myScore={$game.myScore} rank={$game.myRank} totalPlayers={$game.totalPlayers} />
 
+    {:else if showTypeOnly}
+      <div class="preview">
+        <div class="cd-label">Question type</div>
+        <div class="type-badge big">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
+        <div class="cd-label">Get ready!</div>
+      </div>
+
     {:else if showPreview}
       <div class="preview">
         <div class="type-badge">{TYPE_LABELS[slide?.type] ?? slide?.type}</div>
-        {#if leadIn >= 2}
-          <div class="preview-q">{slide?.question ?? ''}</div>
-        {/if}
-        <div class="cd-label">{leadIn === 1 ? 'Get ready!' : 'Read carefully…'}</div>
+        <div class="preview-q">{slide?.question ?? ''}</div>
+        <div class="cdnum">{countdown}</div>
+        <div class="cd-label">{timeExpired ? "Time's up!" : 'Get ready!'}</div>
       </div>
 
     {:else if $game.phase === 'active' && slide}
@@ -220,45 +239,56 @@
     100% { transform: translateY(105vh) rotate(540deg); opacity: 0.9; }
   }
 
-  /* Question lead-in (stage 1: type · stage 2: + question text) */
+  /* Countdown preview */
   .preview {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
-    gap: 1.4rem;
+    gap: 1.2rem;
     padding: 2rem;
     text-align: center;
   }
   .type-badge {
-    background: linear-gradient(135deg, var(--primary), var(--primary-700));
+    background: var(--primary, #7c3aed);
     color: #fff;
-    font-size: 1rem;
-    font-weight: 800;
+    font-size: 0.85rem;
+    font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 0.3rem 1rem;
+    border-radius: 999px;
+  }
+  .type-badge.big {
+    font-size: clamp(1.3rem, 7vw, 2.2rem);
     letter-spacing: 3px;
-    padding: 0.55rem 1.4rem;
-    border-radius: var(--radius-pill);
-    box-shadow: var(--shadow-md);
-    animation: medalIn 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+    padding: 0.8rem 2rem;
+    animation: pulse 1.2s ease-in-out infinite;
   }
   .preview-q {
     font-family: var(--font-display, sans-serif);
-    font-size: clamp(1.3rem, 6vw, 1.9rem);
+    font-size: clamp(1.1rem, 5vw, 1.6rem);
     font-weight: 700;
     color: var(--text, #fff);
-    max-width: 360px;
-    animation: riseIn 0.4s ease both;
+    max-width: 340px;
+  }
+  .cdnum {
+    font-family: var(--font-display, sans-serif);
+    font-size: clamp(5rem, 20vw, 8rem);
+    font-weight: 900;
+    color: var(--primary, #7c3aed);
+    line-height: 1;
+    animation: pulse 1s ease-in-out infinite;
   }
   @keyframes pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.08); opacity: 0.85; }
   }
-  .cd-label { font-size: 0.8rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 2px; }
+  .cd-label { font-size: 0.9rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
-    .medal, .place, .finalscore, .gg, .type-badge, .preview-q, .calc { animation: none !important; }
+    .medal, .place, .finalscore, .gg, .calc, .type-badge.big, .cdnum { animation: none !important; }
     .confetti { display: none; }
   }
 </style>

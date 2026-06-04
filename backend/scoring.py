@@ -71,39 +71,46 @@ def calculate_score(
         return pts, is_exact
 
     if isinstance(slide, MultipleMatchingSlide):
-        # answer is a list of 2-token pairs, each token "L<i>" (left col item i) or
-        # "R<j>" (shuffled right col item j). Players can pair ANY two cards — only a
-        # genuine left/right correspondence scores; same-side pairs always score 0.
+        # Players may now pair ANY two cards together (left-left, right-right or
+        # left-right), so each submitted pair is a list of two [side, index] cards.
+        # A pair only scores when it joins a left card to its matching right card.
         if shuffled_right is None:
             return 0, False
-        correct_right_order = [p.right for p in slide.pairs]
-        correct_set = set()
-        for i, pair in enumerate(slide.pairs):
-            try:
-                j = shuffled_right.index(pair.right)
-            except ValueError:
-                continue
-            correct_set.add(frozenset({f"L{i}", f"R{j}"}))
-
-        seen = set()
-        correct_pairs = 0
-        for tokens in (answer or []):
-            if not isinstance(tokens, (list, tuple)) or len(tokens) != 2:
-                continue
-            a, b = str(tokens[0]), str(tokens[1])
-            key = frozenset({a, b})
-            if len(key) != 2:
-                continue  # malformed / self-pair
-            if a in seen or b in seen:
-                continue  # a card can only belong to one pair
-            seen.add(a)
-            seen.add(b)
-            if key in correct_set:
-                correct_pairs += 1
-
+        correct_right_order = [p.right for p in slide.pairs]  # expected right text per left index
         n = len(slide.pairs)
-        all_correct = n > 0 and correct_pairs == n
-        pts = round(MAX_POINTS * correct_pairs / n) if n else 0
+        correct_pairs = 0
+        for pair in (answer or []):
+            sides = _parse_match_pair(pair)
+            if sides is None:
+                continue
+            left_idx, right_idx = sides
+            if 0 <= left_idx < n and 0 <= right_idx < len(shuffled_right):
+                if shuffled_right[right_idx] == correct_right_order[left_idx]:
+                    correct_pairs += 1
+        all_correct = correct_pairs == n
+        ratio = correct_pairs / n if n else 0
+        pts = round(MAX_POINTS * ratio + SPEED_BONUS * sm * ratio)
         return pts, all_correct
 
     return 0, False
+
+
+def _parse_match_pair(pair) -> tuple[int, int] | None:
+    """Extract (left_index, right_index) from a submitted [[side, idx], [side, idx]] pair.
+
+    Returns None unless the pair joins exactly one left card to one right card
+    (same-side pairings are always wrong and score nothing).
+    """
+    if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+        return None
+    by_side: dict[str, int] = {}
+    for card in pair:
+        if not isinstance(card, (list, tuple)) or len(card) != 2:
+            return None
+        side, idx = card
+        if side not in ("left", "right") or not isinstance(idx, int):
+            return None
+        by_side[side] = idx
+    if "left" not in by_side or "right" not in by_side:
+        return None
+    return by_side["left"], by_side["right"]

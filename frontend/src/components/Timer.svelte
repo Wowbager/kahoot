@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   export let timeLimit = 30;
   export let startedAt = null; // unix ms
 
@@ -15,6 +15,10 @@
     }, 100);
   }
 
+  onMount(() => {
+    audio.play();
+  });
+
   onDestroy(() => clearInterval(interval));
 
   $: pct = timeLimit > 0 ? remaining / timeLimit : 0;
@@ -23,7 +27,11 @@
   const R = 44;
   const CIRC = 2 * Math.PI * R;
   $: dash = pct * CIRC;
+
+  let audio;
 </script>
+
+<audio src="/sounds/countdown.mp3" loop bind:this={audio}></audio>
 
 <div class="timer">
   <svg viewBox="0 0 100 100" class="ring">

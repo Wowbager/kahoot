@@ -11,7 +11,29 @@
     return Math.max(1, ...Object.values(dist).map(v => typeof v === 'number' ? v : 0));
   }
 
+  function toLabel(items, index) {
+    if (!Array.isArray(items)) return `Item ${index + 1}`;
+    return items[index] ?? `Item ${index + 1}`;
+  }
+
+  function buildMatchingPairs() {
+    if (slide?.type !== 'multiple_matching' || !Array.isArray(correct) || !correct.length) return [];
+    const leftItems = slide?.left_items ?? [];
+    const rightItems = slide?.right_items ?? [];
+
+    return correct
+      .filter(pair => Array.isArray(pair) && pair.length >= 2)
+      .map(([leftIdx, rightIdx]) => ({
+        leftIdx,
+        rightIdx,
+        left: toLabel(leftItems, leftIdx),
+        right: toLabel(rightItems, rightIdx),
+      }))
+      .sort((a, b) => a.leftIdx - b.leftIdx);
+  }
+
   $: maxVal = getMax(distribution);
+  $: matchingPairs = buildMatchingPairs();
 </script>
 
 {#if slide?.type === 'single_choice' || slide?.type === 'multiple_choice'}
@@ -56,7 +78,24 @@
 
 {:else if slide?.type === 'multiple_matching'}
   <div class="match-result">
-    <p>{distribution?.total ?? 0} players submitted answers</p>
+    <div class="match-header">
+      <div class="match-title">Correct pairs</div>
+      <p>{distribution?.total ?? 0} players submitted answers</p>
+    </div>
+
+    {#if matchingPairs.length}
+      <div class="pairs">
+        {#each matchingPairs as pair}
+          <div class="pair-row">
+            <div class="pair-left">{pair.left}</div>
+            <div class="pair-arrow">→</div>
+            <div class="pair-right">{pair.right}</div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="pairs empty">No matching pairs available</div>
+    {/if}
   </div>
 {/if}
 
@@ -80,4 +119,59 @@
   .correct-value strong { color: gold; }
   .answers-list { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
   .val-chip { background: rgba(255,255,255,0.1); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.9rem; }
+  .match-result {
+    width: min(100%, 760px);
+    margin: 0 auto;
+    padding: 1.2rem;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+  }
+  .match-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+  }
+  .match-title {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+  }
+  .match-header p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+  .pairs {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .pair-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.08);
+  }
+  .pair-left, .pair-right {
+    font-weight: 700;
+    color: #fff;
+    word-break: break-word;
+  }
+  .pair-arrow {
+    color: gold;
+    font-size: 1.2rem;
+    font-weight: 900;
+  }
+  .pairs.empty {
+    padding: 0.9rem 1rem;
+    color: var(--text-faint);
+    border: 1px dashed rgba(255,255,255,0.18);
+    border-radius: 14px;
+  }
 </style>

@@ -1,9 +1,19 @@
 <script>
+    import { onMount } from "svelte";
+
   export let standings = [];
   const medals = ['🥇', '🥈', '🥉'];
   $: top = standings.slice(0, 5);
   $: rest = Math.max(0, standings.length - top.length);
+
+  onMount(() => {
+    audio.play();
+  });
+
+  let audio;
 </script>
+
+<audio src="/sounds/gong.mp3" bind:this={audio}></audio>
 
 <div class="board">
   <h2>Leaderboard</h2>

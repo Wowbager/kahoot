@@ -17,8 +17,14 @@
         color: { dark: '#1b1140', light: '#ffffff' },
       });
     } catch {}
+
+    audio.play();
   });
+
+  let audio;
 </script>
+
+<audio src="/sounds/intro.mp3" loop bind:this={audio}></audio>
 
 <div class="lobby">
   <div class="left">
