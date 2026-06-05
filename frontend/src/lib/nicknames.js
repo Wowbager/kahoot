@@ -39,7 +39,9 @@ const FIRST = [
   "Koláček",
   "SSSSSSSSS",
   "bro",
-  "čau, já jsem"
+  "čau, já jsem",
+  "jáj děcka",
+  "na prahu"
 ];
 
 const SECOND = [
@@ -55,7 +57,8 @@ const SECOND = [
   "Marvánek",
   "ČESKO",
   "TESCO",
-  "ve stavu blaženosti"
+  "ve stavu blaženosti",
+  "Becquerel"
 ]
 
 export function randomNickname() {
