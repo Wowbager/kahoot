@@ -1,0 +1,72 @@
+{
+  "title": "What's Inside Your Computer? 💻",
+  "slides": [
+    {
+      "type": "single_choice",
+      "question": "Which of these is something you can actually touch?",
+      "options": ["A keyboard", "A song file", "A website", "An email"],
+      "correct": [0],
+      "time_limit": 20
+    },
+    {
+      "type": "true_false",
+      "question": "A computer needs both physical parts AND programs to work.",
+      "correct": true,
+      "time_limit": 20
+    },
+    {
+      "type": "presentation",
+      "content": "## Hardware vs. Software 🧩\n\n**Hardware** = parts you can touch 🖥️\n\n**Software** = instructions you can't touch 📱"
+    },
+    {
+      "type": "presentation",
+      "content": "## The Operating System 👑\n\nThe **OS** is the *boss* of your device.\n\n*Windows · Android · iOS*"
+    },
+    {
+      "type": "presentation",
+      "content": "## Kernel & Drivers 🍽️\n\nThe OS works like a restaurant:\n\n**Kernel** = the kitchen (does the real work)\n\n**Drivers** = the waiters (carry messages to each device)"
+    },
+    {
+      "type": "presentation",
+      "content": "## Quiz Time! 🎯\n\nWho was really listening?\n\n*Faster correct answers score more!*"
+    },
+    {
+      "type": "single_choice",
+      "question": "Which part is the 'boss' that manages the whole device?",
+      "options": ["The keyboard", "The operating system", "A single app", "The cable"],
+      "correct": [1],
+      "time_limit": 20
+    },
+    {
+      "type": "true_false",
+      "question": "A driver helps the software and a device (like a printer) understand each other.",
+      "correct": true,
+      "time_limit": 20
+    },
+    {
+      "type": "multiple_choice",
+      "question": "Which of these are examples of hardware?",
+      "options": ["Keyboard", "A game app", "Speakers", "A photo file"],
+      "correct": [0, 2],
+      "time_limit": 30
+    },
+    {
+      "type": "number_slider",
+      "question": "In which year was 'Windows 95' released?",
+      "min": 1980,
+      "max": 2010,
+      "correct": 1995,
+      "time_limit": 25
+    },
+    {
+      "type": "multiple_matching",
+      "question": "Match each part to its job.",
+      "pairs": [
+        {"left": "Operating System", "right": "The boss that runs the whole device"},
+        {"left": "Kernel", "right": "The busy core that does the real work"},
+        {"left": "Driver", "right": "The messenger between software and a device"}
+      ],
+      "time_limit": 45
+    }
+  ]
+}
